@@ -1,0 +1,139 @@
+use std::str::FromStr;
+use crate::ast;
+
+grammar;
+
+pub Module:                                 ast::Module = {
+    Func*                                       => ast::Module(<>),
+};
+
+// Function
+
+Func:                                       ast::Func = {
+    "extern" <FuncDecl> ";"                     => ast::Func::Extern(<>),
+    FuncDef                                     => ast::Func::FuncDef(<>),
+};
+FuncDecl:                                   ast::FuncDecl = {
+    "fn" <n:Ident> "(" <p:Params> ")"           => ast::FuncDecl { name: n, params: p },
+};
+Params = Comma<Ident>;
+FuncDef:                                    ast::FuncDef = {
+    <d:FuncDecl> <b:Block>                      => ast::FuncDef { decl: d, body: b },
+};
+
+// Statements
+
+Stmt:                                       ast::Stmt = {
+    <Assign> ";"                                => ast::Stmt::Assign(<>),
+    <Expr> ";"                                  => ast::Stmt::Expr(<>),
+};
+
+Assign:                                     ast::Assign = {
+    <i:Ident> "=" <e:Expr>                      => ast::Assign { var_name: i, val: e },
+};
+
+// Expressions
+
+Expr:                                       Box<ast::Expr> = {
+    Set                                         => Box::new(ast::Expr::Set(<>)),
+    Return                                      => Box::new(ast::Expr::Return(<>)),
+    OpExpr,
+};
+
+Set:                                        ast::Assign = {
+    "set" <Assign>,
+};
+
+Return:                                     Box<ast::Expr> = {
+    "return" <Expr>,
+};
+
+OpExpr = Tier<CompOp, AddExpr>;
+AddExpr = Tier<AddOp, MulExpr>;
+MulExpr = Tier<MulOp, Primary>;
+
+Primary:                                    Box<ast::Expr> = {
+    Number                                      => Box::new(ast::Expr::Number(<>)),
+    Ident                                       => Box::new(ast::Expr::Ident(<>)),
+    FuncCall                                    => Box::new(ast::Expr::FuncCall(<>)),
+    "(" <Expr> ")",
+    ExprWithBlock,
+};
+
+FuncCall:                                   ast::FuncCall = {
+    <i:Ident> "(" <a:ArgList> ")"               => ast::FuncCall { func_name: i, args: a },
+};
+ArgList = Comma<Expr>;
+
+ExprWithBlock:                              Box<ast::Expr> = {
+    Block                                       => Box::new(ast::Expr::Block(<>)),
+    If                                          => Box::new(ast::Expr::If(<>)),
+    For                                         => Box::new(ast::Expr::For(<>)),
+};
+
+Block:                                      ast::Block = {
+    "{" <mut v:StmtsInBlock*> <s:Stmt> "}"      => { v.push(s); ast::Block { stmts: v, expr: None } },
+    "{" <v:StmtsInBlock*> <e:Expr> "}"          => ast::Block { stmts: v, expr: Some(e) },
+    "{" "}"                                     => ast::Block { stmts: Vec::new(), expr: None },
+};
+StmtsInBlock:                               ast::Stmt = {
+    Stmt,
+    ExprWithBlock                               => ast::Stmt::Expr(<>)
+};
+
+If:                                         ast::If = {
+    "if" <c:Expr> <t:Block> <e:Else?>           => ast::If { cond: c, then: t, else_: e },
+};
+Else:                                       ast::Block = {
+    "else" <Block>,
+};
+
+For:                                        ast::For = {
+    "for" <v:Ident> "," <u:Expr> <b:Block>      => ast::For { var_name: v, until: u, body: b },
+};
+
+CompOp:                                     ast::Op = {
+    "<"                                         => ast::Op::Lt,
+    ">"                                         => ast::Op::Gt,
+    "<="                                        => ast::Op::Leq,
+    ">="                                        => ast::Op::Geq,
+    "=="                                        => ast::Op::Eq,
+    "!="                                        => ast::Op::Neq,
+};
+AddOp:                                      ast::Op = {
+    "+"                                         => ast::Op::Add,
+    "-"                                         => ast::Op::Sub,
+};
+MulOp:                                      ast::Op = {
+    "*"                                         => ast::Op::Mul,
+    "/"                                         => ast::Op::Div,
+};
+
+Ident:                                      String = {
+    r"[A-Za-z_][A-Za-z_0-9]*"                   => <>.to_string()
+};
+Number: f64 = {
+    Integer,
+    Float,
+}
+Integer:                                    f64 = {
+    r"0|[1-9][0-9]*"                            => f64::from_str(<>).unwrap(),
+}
+Float:                                      f64 = {
+    r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
+}
+
+Comma<T>:                                   Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?>                   => match e {
+                                                    None => v,
+                                                    Some(e) => {
+                                                        v.push(e);
+                                                        v
+                                                    }
+                                                }
+};
+
+Tier<Op, NextTier>:                         Box<ast::Expr> = {
+    Tier<Op, NextTier> Op NextTier              => Box::new(ast::Expr::Op(<>)),
+    NextTier
+};
