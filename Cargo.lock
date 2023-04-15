@@ -280,6 +280,9 @@ dependencies = [
 [[package]]
 name = "mogral-cli"
 version = "0.1.0"
+dependencies = [
+ "mogral",
+]
 
 [[package]]
 name = "new_debug_unreachable"
