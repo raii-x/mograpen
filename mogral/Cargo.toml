@@ -11,3 +11,5 @@ lalrpop = "0.19.9"
 [dependencies]
 lalrpop-util = { version = "0.19.9", features = ["lexer"] }
 regex = "1"
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", default-features = false, features = ["llvm15-0", "target-x86"] }
+thiserror = "1"

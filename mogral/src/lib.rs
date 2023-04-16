@@ -1,37 +1,101 @@
-use lalrpop_util::{lexer::Token, ParseError};
-
 #[macro_use]
 extern crate lalrpop_util;
 
 lalrpop_mod!(pub grammar);
 pub mod ast;
+mod code_gen;
+mod exec;
+mod parser;
+mod wrapper;
 
-pub fn parse(input: &str) -> Result<ast::Module, ParseError<usize, Token<'_>, &'static str>> {
-    grammar::ModuleParser::new().parse(input)
-}
+pub use code_gen::code_gen;
+pub use exec::exec;
+pub use parser::parse;
+pub use wrapper::{MglContext, MglModule};
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
-    #[test]
-    fn grammar() {
-        let code = r#"
-extern fn ext();
-fn main(a, b) {
-    set a = 5;
-    x = if b == 4 * 3 + (1 - 2) { 3 } else { ext() };
-	for i, 10 {
-        _3 = i / { ext(); .5 };
-        if i > b {
-            return 3.05;
-        }
+    fn code_exec(code: &str, arg: f64) -> f64 {
+        let context = MglContext::new();
+        let module = code_gen(&context, &parse(code).unwrap(), false).unwrap();
+        exec(&module, arg).unwrap()
     }
-    0.3
+
+    #[test]
+    fn call() {
+        let code = r#"
+fn main() {
+	return 123;
 }"#;
-        assert!(match parse(code) {
-            Ok(_) => true,
-            Err(_) => false,
-        });
+        assert_eq!(code_exec(code, 0.0), 123.0);
+    }
+
+    #[test]
+    fn if_() {
+        let code = r#"
+fn main(x) {
+	if x < 3 {
+		return 5;
+	} else {
+		return 10;
+	}
+}"#;
+        assert_eq!(code_exec(code, 2.0), 5.0);
+        assert_eq!(code_exec(code, 3.0), 10.0);
+        assert_eq!(code_exec(code, 4.0), 10.0);
+    }
+
+    #[test]
+    fn variable() {
+        let code = r#"
+fn main(x) {
+	v = 5;
+	for i, 3 {
+		set v = v + 1;
+	}
+	return v;
+}"#;
+        assert_eq!(code_exec(code, 0.0), 8.0);
+    }
+
+    #[test]
+    fn early_return() {
+        let code = r#"
+fn main(x) {
+	if x == 0 {
+		return 1;
+	}
+	return 2;
+}"#;
+        assert_eq!(code_exec(code, 0.0), 1.0);
+        assert_eq!(code_exec(code, 1.0), 2.0);
+    }
+
+    #[test]
+    fn block_expression() {
+        let code = r#"
+fn main(x) {
+	a = 3;
+	b = 1;
+	set a = { set b = b + 10; a + b };
+	a
+}"#;
+        assert_eq!(code_exec(code, 0.0), 14.0);
+    }
+
+    #[test]
+    fn if_expression() {
+        let code = r#"
+fn main(x) {
+	return if x == 0 {
+		1
+	} else {
+		2
+	};
+}"#;
+        assert_eq!(code_exec(code, 0.0), 1.0);
+        assert_eq!(code_exec(code, 1.0), 2.0);
     }
 }
