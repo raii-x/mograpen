@@ -1,3 +1,5 @@
+mod error;
+
 use std::collections::HashMap;
 
 use inkwell::builder::Builder;
@@ -7,25 +9,10 @@ use inkwell::passes::PassManager;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::{FloatValue, FunctionValue, IntValue, PointerValue};
 use inkwell::FloatPredicate;
-use thiserror::Error;
 
 use crate::{ast, MglContext, MglModule};
 
-#[derive(Debug, Error)]
-enum CodeGenError {
-    #[error("invalid generated function")]
-    InvalidFunction,
-    #[error("unknown variable name")]
-    UnknownVariableName,
-    #[error("variable already exists")]
-    VariableAlreadyExists,
-    #[error("unknown function referenced")]
-    UnknownFunction,
-    #[error("incorrect number of arguments passed")]
-    IncorrectNumberOfArguments,
-    #[error("invalid call produced")]
-    InvalidCall,
-}
+use self::error::CodeGenError;
 
 struct CodeGen<'ctx> {
     context: &'ctx Context,
