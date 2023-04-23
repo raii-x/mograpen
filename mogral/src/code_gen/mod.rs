@@ -407,7 +407,7 @@ impl<'ctx> CodeGen<'ctx> {
         // ======================================== merge_bbの処理
 
         if then_val.is_none() && else_val.is_none() {
-            // ifとthenの両方の場合でreturnする場合はそれ以降のコード生成を行わない
+            // thenとelseの両方の場合でreturnする場合はそれ以降のコード生成を行わない
             merge_bb.remove_from_function().unwrap();
             Ok(None)
         } else {
