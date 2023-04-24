@@ -93,9 +93,10 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         self.builder.position_at_end(entry);
 
-        // 変数表を作成
-        self.variables.reserve(decl.params.len());
+        self.variables.clear();
 
+        // 関数の引数を変数表に格納
+        self.variables.reserve(decl.params.len());
         for (i, arg) in function.get_param_iter().enumerate() {
             let arg_name = &decl.params[i];
 

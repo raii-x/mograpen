@@ -98,4 +98,13 @@ fn main(x) {
         assert_eq!(code_exec(code, 0.0), 1.0);
         assert_eq!(code_exec(code, 1.0), 2.0);
     }
+
+    #[test]
+    fn same_name_variables_between_functions() {
+        let code = r#"
+fn sub() {a = 5; a}
+fn main(x) {a = 7; a}
+"#;
+        assert_eq!(code_exec(code, 0.0), 7.0);
+    }
 }
