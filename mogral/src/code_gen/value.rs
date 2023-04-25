@@ -8,7 +8,10 @@ use inkwell::{
     FloatPredicate,
 };
 
-use crate::ast;
+use crate::{
+    op::Op,
+    span::{Span, Spanned},
+};
 
 use super::error::CodeGenError;
 
@@ -117,17 +120,20 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     pub fn build_store(
         &self,
         variable: MglVariable<'ctx>,
-        value: MglValue<'ctx>,
-    ) -> Result<Option<InstructionValue<'ctx>>, CodeGenError> {
-        if variable.type_ != value.type_ {
-            return Err(CodeGenError::MismatchedTypes {
-                expected: variable.type_,
-                found: value.type_,
-            });
+        value: Spanned<MglValue<'ctx>>,
+    ) -> Result<Option<InstructionValue<'ctx>>, Spanned<CodeGenError>> {
+        if variable.type_ != value.item.type_ {
+            return Err(Spanned::new(
+                CodeGenError::MismatchedTypes {
+                    expected: variable.type_,
+                    found: value.item.type_,
+                },
+                value.span,
+            ));
         }
 
         Ok(match variable.alloca {
-            Some(alloca) => Some(self.builder.build_store(alloca, value.value.unwrap())),
+            Some(alloca) => Some(self.builder.build_store(alloca, value.item.value.unwrap())),
             None => None,
         })
     }
@@ -159,21 +165,25 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     pub fn build_call(
         &self,
         function: FunctionValue<'ctx>,
-        args: &[MglValue<'ctx>],
+        args: &[Spanned<MglValue<'ctx>>],
         name: &str,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+        span: Span,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
         let mut ink_args = Vec::new();
         for arg in args {
             // 引数の型チェック
             // TODO: Double型以外を渡せるようにする
-            if arg.type_ != MglType::Double {
-                return Err(CodeGenError::MismatchedTypes {
-                    expected: MglType::Double,
-                    found: arg.type_,
-                });
+            if arg.item.type_ != MglType::Double {
+                return Err(Spanned::new(
+                    CodeGenError::MismatchedTypes {
+                        expected: MglType::Double,
+                        found: arg.item.type_,
+                    },
+                    arg.span,
+                ));
             }
 
-            if let Some(val) = arg.value {
+            if let Some(val) = arg.item.value {
                 ink_args.push(val.into());
             }
         }
@@ -189,26 +199,30 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 type_: MglType::Double,
                 value: Some(val),
             })),
-            None => Err(CodeGenError::InvalidCall),
+            None => Err(Spanned::new(CodeGenError::InvalidCall, span)),
         }
     }
 
     /// 演算命令を作成する
     pub fn build_op(
         &self,
-        op: ast::Op,
+        op: Op,
         lhs: Option<MglValue<'ctx>>,
         rhs: Option<MglValue<'ctx>>,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+        span: Span,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
         match (lhs, rhs) {
-            (Some(lhs), Some(rhs)) => self.build_op_inner(op, lhs, rhs).map(Some),
+            (Some(lhs), Some(rhs)) => self
+                .build_op_inner(op, lhs, rhs)
+                .map(Some)
+                .map_err(|e| Spanned::new(e, span)),
             _ => Ok(None),
         }
     }
 
     fn build_op_inner(
         &self,
-        op: ast::Op,
+        op: Op,
         lhs: MglValue<'ctx>,
         rhs: MglValue<'ctx>,
     ) -> Result<MglValue<'ctx>, CodeGenError> {
@@ -226,7 +240,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 let rhs = rhs.value.unwrap().into_float_value();
 
                 match op {
-                    ast::Op::Lt => Ok(MglValue {
+                    Op::Lt => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -234,7 +248,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Gt => Ok(MglValue {
+                    Op::Gt => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -242,7 +256,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Leq => Ok(MglValue {
+                    Op::Leq => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -250,7 +264,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Geq => Ok(MglValue {
+                    Op::Geq => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -258,7 +272,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Eq => Ok(MglValue {
+                    Op::Eq => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -266,7 +280,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Neq => Ok(MglValue {
+                    Op::Neq => Ok(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -274,19 +288,19 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    ast::Op::Add => Ok(MglValue {
+                    Op::Add => Ok(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_add(lhs, rhs, "addtmp").into()),
                     }),
-                    ast::Op::Sub => Ok(MglValue {
+                    Op::Sub => Ok(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_sub(lhs, rhs, "subtmp").into()),
                     }),
-                    ast::Op::Mul => Ok(MglValue {
+                    Op::Mul => Ok(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_mul(lhs, rhs, "multmp").into()),
                     }),
-                    ast::Op::Div => Ok(MglValue {
+                    Op::Div => Ok(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_div(lhs, rhs, "divtmp").into()),
                     }),

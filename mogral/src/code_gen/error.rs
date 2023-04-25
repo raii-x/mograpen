@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use thiserror::Error;
 
-use crate::ast;
+use crate::{op::Op, span::Spanned};
 
 use super::value::MglType;
 
@@ -21,9 +23,12 @@ pub enum CodeGenError {
     #[error("mismatched types (expected {expected:?}, found {found:?})")]
     MismatchedTypes { expected: MglType, found: MglType },
     #[error("invalid operand types ({lhs:?} {op} {rhs:?})")]
-    InvalidOperandTypes {
-        op: ast::Op,
-        lhs: MglType,
-        rhs: MglType,
-    },
+    InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
 }
+
+impl Display for Spanned<CodeGenError> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}: {}", self.span.l, self.span.r, self.item)
+    }
+}
+impl std::error::Error for Spanned<CodeGenError> {}

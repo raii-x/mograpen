@@ -5,7 +5,9 @@ lalrpop_mod!(pub grammar);
 pub mod ast;
 mod code_gen;
 mod exec;
+mod op;
 mod parser;
+mod span;
 mod wrapper;
 
 pub use code_gen::code_gen;

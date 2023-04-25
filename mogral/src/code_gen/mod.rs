@@ -10,7 +10,10 @@ use inkwell::passes::PassManager;
 use inkwell::types::BasicMetadataTypeEnum;
 use inkwell::values::FunctionValue;
 
-use crate::{ast, MglContext, MglModule};
+use crate::ast;
+use crate::op::Op;
+use crate::span::Spanned as Sp;
+use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
 use self::value::{MglType, MglValue, MglValueBuilder, MglVariable};
@@ -60,34 +63,44 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
     }
 
-    fn gen_module(&mut self, ast: &ast::Module) -> Result<(), CodeGenError> {
+    fn gen_module(&mut self, ast: &ast::Module) -> Result<(), Sp<CodeGenError>> {
         for func in &ast.0 {
-            match func {
-                ast::Func::Extern(e) => self.gen_func_decl(e),
-                ast::Func::FuncDef(f) => self.gen_func_def(f),
+            match &func.item {
+                ast::Func::Extern(e) => self.gen_func_decl(Sp::new(e, func.span)),
+                ast::Func::FuncDef(f) => self.gen_func_def(Sp::new(f, func.span)),
             }?;
         }
         Ok(())
     }
 
-    fn gen_func_decl(&mut self, ast: &ast::FuncDecl) -> Result<FunctionValue<'ctx>, CodeGenError> {
+    fn gen_func_decl(
+        &mut self,
+        ast: Sp<&ast::FuncDecl>,
+    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         // 関数を作成
         let f64_type = self.context.f64_type();
-        let param_types: Vec<BasicMetadataTypeEnum> = vec![f64_type.into(); ast.params.len()];
+        let param_types: Vec<BasicMetadataTypeEnum> = vec![f64_type.into(); item.params.len()];
         let fn_type = f64_type.fn_type(&param_types, false);
-        let fn_val = self.module.add_function(&ast.name, fn_type, None);
+        let fn_val = self.module.add_function(&item.name.item, fn_type, None);
 
         // 引数の名前を設定
         for (i, arg) in fn_val.get_param_iter().enumerate() {
-            arg.into_float_value().set_name(&ast.params[i]);
+            arg.into_float_value().set_name(&item.params[i].item);
         }
 
         Ok(fn_val)
     }
 
-    fn gen_func_def(&mut self, ast: &ast::FuncDef) -> Result<FunctionValue<'ctx>, CodeGenError> {
-        let decl = &ast.decl;
-        let function = self.gen_func_decl(decl)?;
+    fn gen_func_def(
+        &mut self,
+        ast: Sp<&ast::FuncDef>,
+    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let decl = &item.decl.item;
+        let function = self.gen_func_decl(item.decl.as_ref())?;
 
         let entry = self.context.append_basic_block(function, "entry");
 
@@ -107,14 +120,15 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
             let var = self
                 .value_builder
-                .create_variable(function, MglType::Double, arg_name);
-            self.value_builder.build_store(var, arg)?;
+                .create_variable(function, MglType::Double, &arg_name.item);
+            self.value_builder
+                .build_store(var, Sp::new(arg, arg_name.span))?;
 
-            self.variables.insert(decl.params[i].clone(), var);
+            self.variables.insert(decl.params[i].item.clone(), var);
         }
 
         // 関数本体のコード生成
-        let body = self.gen_block(&ast.body)?;
+        let body = self.gen_block(item.body.as_ref())?;
 
         if let Some(body) = body {
             // return文が無いパスがある場合はここでreturnを作成
@@ -134,14 +148,19 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 function.delete();
             }
 
-            Err(CodeGenError::InvalidFunction)
+            Err(Sp::new(CodeGenError::InvalidFunction, span))
         }
     }
 
-    fn gen_block(&mut self, ast: &ast::Block) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    fn gen_block(
+        &mut self,
+        ast: Sp<&ast::Block>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         // 文のコード生成
-        for s in &ast.stmts {
-            let res = self.gen_stmt(s)?;
+        for s in &item.stmts {
+            let res = self.gen_stmt(s.as_ref())?;
             if res.is_none() {
                 // returnするならそれ以降のコード生成を行わない
                 return Ok(None);
@@ -149,16 +168,18 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
 
         // 式があれば生成して評価結果を返し、式が無ければunitを返す
-        match &ast.expr {
-            Some(e) => self.gen_expr(e),
+        match &item.expr {
+            Some(e) => self.gen_expr(e.as_ref()),
             None => Ok(Some(MglValue::unit())),
         }
     }
 
-    fn gen_stmt(&mut self, ast: &ast::Stmt) -> Result<Option<()>, CodeGenError> {
-        let res = match ast {
-            ast::Stmt::Assign(a) => self.gen_assign(a, false),
-            ast::Stmt::Expr(e) => self.gen_expr(e),
+    fn gen_stmt(&mut self, ast: Sp<&ast::Stmt>) -> Result<Option<()>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let res = match item {
+            ast::Stmt::Assign(a) => self.gen_assign(Sp::new(a, span), false),
+            ast::Stmt::Expr(e) => self.gen_expr(Sp::new(e, span)),
         }?;
         // 式の評価結果を捨てる
         Ok(res.and(Some(())))
@@ -168,55 +189,71 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     /// (引数のsetがtrueの場合は再代入)
     fn gen_assign(
         &mut self,
-        ast: &ast::Assign,
+        ast: Sp<&ast::Assign>,
         set: bool,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         let var = if set {
             // 再代入の場合、変数が存在しない場合にエラー
-            *self
-                .variables
-                .get(&ast.var_name)
-                .ok_or(CodeGenError::UnknownVariableName)?
+            *self.variables.get(&item.var_name.item).ok_or(Sp::new(
+                CodeGenError::UnknownVariableName,
+                item.var_name.span,
+            ))?
         } else {
             // 新規変数宣言の場合、既に変数が存在する場合にエラー
-            if self.variables.contains_key(&ast.var_name) {
-                return Err(CodeGenError::VariableAlreadyExists);
+            if self.variables.contains_key(&item.var_name.item) {
+                return Err(Sp::new(
+                    CodeGenError::VariableAlreadyExists,
+                    item.var_name.span,
+                ));
             }
-            let alloca =
-                self.value_builder
-                    .create_variable(self.get_func(), MglType::Double, &ast.var_name);
-            self.variables.insert(ast.var_name.to_owned(), alloca);
+            let alloca = self.value_builder.create_variable(
+                self.get_func(),
+                MglType::Double,
+                &item.var_name.item,
+            );
+            self.variables.insert(item.var_name.item.to_owned(), alloca);
             alloca
         };
 
-        let val = self.gen_expr(&ast.val)?;
+        let val = self.gen_expr(item.val.as_ref())?;
         if let Some(val) = val {
-            self.value_builder.build_store(var, val)?;
+            self.value_builder
+                .build_store(var, Sp::new(val, item.val.span))?;
         }
         Ok(val)
     }
 
-    fn gen_expr(&mut self, ast: &ast::Expr) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
-        match ast {
-            ast::Expr::Set(a) => self.gen_assign(a, true),
-            ast::Expr::Return(r) => self.gen_return(r),
-            ast::Expr::Op(l, op, r) => self.gen_op_expr(op, l, r),
+    fn gen_expr(
+        &mut self,
+        ast: Sp<&Box<ast::Expr>>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        match item.as_ref() {
+            ast::Expr::Set(a) => self.gen_assign(Sp::new(a, span), true),
+            ast::Expr::Return(r) => self.gen_return(Sp::new(r, span)),
+            ast::Expr::Op(o) => self.gen_op_expr(Sp::new(o, span)),
             ast::Expr::Number(n) => Ok(Some(self.value_builder.double(*n))),
             ast::Expr::Ident(i) => {
                 let var = *self
                     .variables
                     .get(i)
-                    .ok_or(CodeGenError::UnknownVariableName)?;
+                    .ok_or(Sp::new(CodeGenError::UnknownVariableName, span))?;
                 Ok(Some(self.value_builder.build_load(var)))
             }
-            ast::Expr::FuncCall(fc) => self.gen_func_call(fc),
-            ast::Expr::Block(b) => self.gen_block(b),
-            ast::Expr::If(i) => self.gen_if(i),
-            ast::Expr::For(f) => self.gen_for(f),
+            ast::Expr::FuncCall(fc) => self.gen_func_call(Sp::new(fc, span)),
+            ast::Expr::Block(b) => self.gen_block(Sp::new(b, span)),
+            ast::Expr::If(i) => self.gen_if(Sp::new(i, span)),
+            ast::Expr::For(f) => self.gen_for(Sp::new(f, span)),
         }
     }
 
-    fn gen_return(&mut self, ast: &ast::Expr) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    fn gen_return(
+        &mut self,
+        ast: Sp<&Box<ast::Expr>>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let val = self.gen_expr(ast)?;
         if let Some(val) = val {
             self.value_builder.build_return(val);
@@ -226,51 +263,63 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
     fn gen_op_expr(
         &mut self,
-        op: &ast::Op,
-        lhs: &ast::Expr,
-        rhs: &ast::Expr,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
-        let lhs = self.gen_expr(lhs)?;
-        let rhs = self.gen_expr(rhs)?;
-        self.value_builder.build_op(*op, lhs, rhs)
+        ast: Sp<&ast::OpExpr>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let lhs = self.gen_expr(item.lhs.as_ref())?;
+        let rhs = self.gen_expr(item.rhs.as_ref())?;
+        self.value_builder.build_op(item.op.item, lhs, rhs, span)
     }
 
     fn gen_func_call(
         &mut self,
-        ast: &ast::FuncCall,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+        ast: Sp<&ast::FuncCall>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        // 関数名から関数を取得
         let func = self
             .module
-            .get_function(&ast.func_name)
-            .ok_or(CodeGenError::UnknownFunction)?;
+            .get_function(&item.func_name.item)
+            .ok_or(Sp::new(CodeGenError::UnknownFunction, item.func_name.span))?;
 
-        if ast.args.len() != func.count_params() as usize {
-            return Err(CodeGenError::IncorrectNumberOfArguments);
+        // 引数の数のチェック
+        if item.args.len() != func.count_params() as usize {
+            return Err(Sp::new(CodeGenError::IncorrectNumberOfArguments, span));
         }
 
-        let mut args = Vec::with_capacity(ast.args.len());
+        // 引数の配列を作成
+        let mut args = Vec::with_capacity(item.args.len());
 
-        for arg in &ast.args {
-            match self.gen_expr(arg)? {
-                Some(v) => args.push(v),
+        for arg in &item.args {
+            match self.gen_expr(arg.as_ref())? {
+                Some(v) => args.push(Sp::new(v, arg.span)),
                 None => return Ok(None),
             }
         }
 
-        self.value_builder.build_call(func, &args, &ast.func_name)
+        // 関数呼び出し命令を作成
+        self.value_builder
+            .build_call(func, &args, &item.func_name.item, span)
     }
 
-    fn gen_if(&mut self, ast: &ast::If) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    fn gen_if(&mut self, ast: Sp<&ast::If>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         // 条件式の処理
-        let cond = self.gen_expr(&ast.cond)?;
+        let cond = self.gen_expr(item.cond.as_ref())?;
         let cond = match cond {
             Some(v) => {
                 // 型チェック
                 if v.type_ != MglType::Bool {
-                    return Err(CodeGenError::MismatchedTypes {
-                        expected: MglType::Bool,
-                        found: v.type_,
-                    });
+                    return Err(Sp::new(
+                        CodeGenError::MismatchedTypes {
+                            expected: MglType::Bool,
+                            found: v.type_,
+                        },
+                        item.cond.span,
+                    ));
                 }
                 v
             }
@@ -278,7 +327,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             None => return Ok(None),
         };
 
-        match &ast.else_ {
+        match &item.else_ {
             Some(_) => self.gen_if_else(ast, cond),
             None => self.gen_if_without_else(ast, cond),
         }
@@ -286,9 +335,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
     fn gen_if_without_else(
         &mut self,
-        ast: &ast::If,
+        ast: Sp<&ast::If>,
         cond: MglValue,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         let parent = self.get_func();
 
         // 分岐用の基本ブロックを作成
@@ -305,7 +356,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.builder.position_at_end(then_bb);
 
         // thenのコード生成
-        let then_val = self.gen_block(&ast.then)?;
+        let then_val = self.gen_block(item.then.as_ref())?;
         // TODO: thenの値がunitであるか確認する
         if then_val.is_some() {
             self.builder.build_unconditional_branch(merge_bb);
@@ -320,9 +371,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
     fn gen_if_else(
         &mut self,
-        ast: &ast::If,
+        ast: Sp<&ast::If>,
         cond: MglValue,
-    ) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
         let parent = self.get_func();
 
         // if式を評価した値を格納する変数
@@ -343,7 +396,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.builder.position_at_end(then_bb);
 
         // thenのコード生成
-        let then_val = self.gen_block(&ast.then)?;
+        let then_val = self.gen_block(item.then.as_ref())?;
 
         if let Some(then_val) = then_val {
             // 変数を作成して格納
@@ -351,7 +404,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 self.value_builder
                     .create_variable(parent, then_val.type_, "ifvalue"),
             );
-            self.value_builder.build_store(if_var.unwrap(), then_val)?;
+            self.value_builder
+                .build_store(if_var.unwrap(), Sp::new(then_val, item.then.span))?;
 
             self.builder.build_unconditional_branch(merge_bb);
         }
@@ -359,18 +413,23 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // ======================================== else_bbの処理
         self.builder.position_at_end(else_bb);
 
+        let else_ = item.else_.as_ref().unwrap();
+
         // elseのコード生成
-        let else_val = self.gen_block(ast.else_.as_ref().unwrap())?;
+        let else_val = self.gen_block(else_.as_ref())?;
 
         if let Some(else_val) = else_val {
             match if_var {
                 Some(var) => {
                     if else_val.type_ != var.type_ {
                         // thenとelseの型が合っていなければエラー
-                        return Err(CodeGenError::MismatchedTypes {
-                            expected: var.type_,
-                            found: else_val.type_,
-                        });
+                        return Err(Sp::new(
+                            CodeGenError::MismatchedTypes {
+                                expected: var.type_,
+                                found: else_val.type_,
+                            },
+                            else_.span,
+                        ));
                     }
                 }
                 None => {
@@ -383,7 +442,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 }
             }
             // 変数に格納
-            self.value_builder.build_store(if_var.unwrap(), else_val)?;
+            self.value_builder
+                .build_store(if_var.unwrap(), Sp::new(else_val, else_.span))?;
 
             self.builder.build_unconditional_branch(merge_bb);
         }
@@ -404,19 +464,24 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
     }
 
-    fn gen_for(&mut self, ast: &ast::For) -> Result<Option<MglValue<'ctx>>, CodeGenError> {
+    fn gen_for(&mut self, ast: Sp<&ast::For>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
         let parent = self.get_func();
+        let var_name = &item.var_name.item;
 
         // インデックス変数を作成
         let index_var = self
             .value_builder
-            .create_variable(parent, MglType::Double, &ast.var_name);
-        self.value_builder
-            .build_store(index_var, self.value_builder.double(0.0))?;
+            .create_variable(parent, MglType::Double, var_name);
+        self.value_builder.build_store(
+            index_var,
+            Sp::new(self.value_builder.double(0.0), item.var_name.span),
+        )?;
 
         // 同名の変数があればシャドーイングした後、変数を登録
-        let old_val = self.variables.remove(&ast.var_name);
-        self.variables.insert(ast.var_name.to_owned(), index_var);
+        let old_val = self.variables.remove(var_name);
+        self.variables.insert(var_name.to_owned(), index_var);
 
         // 条件判定部分の基本ブロック
         let head_bb = self.context.append_basic_block(parent, "loop_head");
@@ -426,7 +491,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // ======================================== head_bbの処理
         self.builder.position_at_end(head_bb);
 
-        let until_val = self.gen_expr(&ast.until)?;
+        let until_val = self.gen_expr(item.until.as_ref())?;
         let until_val = match until_val {
             Some(v) => v,
             None => return Ok(None),
@@ -437,7 +502,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         let end_cond = self
             .value_builder
-            .build_op(ast::Op::Lt, Some(index_val), Some(until_val))?
+            .build_op(Op::Lt, Some(index_val), Some(until_val), span)?
             .unwrap();
 
         let body_bb = self.context.append_basic_block(parent, "loop_body");
@@ -453,7 +518,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.builder.position_at_end(body_bb);
 
         // 本体のコードを生成
-        if self.gen_block(&ast.body)?.is_none() {
+        if self.gen_block(item.body.as_ref())?.is_none() {
             return Ok(None);
         }
 
@@ -464,12 +529,14 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let next_index_val = self
             .value_builder
             .build_op(
-                ast::Op::Add,
+                Op::Add,
                 Some(index_val),
                 Some(self.value_builder.double(1.0)),
+                span,
             )?
             .unwrap();
-        self.value_builder.build_store(index_var, next_index_val)?;
+        self.value_builder
+            .build_store(index_var, Sp::new(next_index_val, item.var_name.span))?;
 
         self.builder.build_unconditional_branch(head_bb);
 
@@ -477,11 +544,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.builder.position_at_end(after_bb);
 
         // 変数の登録を削除
-        self.variables.remove(&ast.var_name);
+        self.variables.remove(var_name);
 
         // シャドーイングした変数があれば戻す
         if let Some(val) = old_val {
-            self.variables.insert(ast.var_name.to_owned(), val);
+            self.variables.insert(var_name.to_owned(), val);
         }
 
         Ok(Some(MglValue::unit()))
