@@ -1,4 +1,4 @@
-mod error;
+pub mod error;
 mod value;
 
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ use inkwell::values::FunctionValue;
 
 use crate::ast;
 use crate::op::Op;
-use crate::span::Spanned as Sp;
+use crate::pos::Spanned as Sp;
 use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
@@ -568,7 +568,7 @@ pub fn code_gen<'ctx>(
     context: &'ctx MglContext,
     ast: &ast::Module,
     optimize: bool,
-) -> Result<MglModule<'ctx>, Box<dyn std::error::Error>> {
+) -> Result<MglModule<'ctx>, Sp<CodeGenError>> {
     let module = context.0.create_module("mogral");
     let builder = context.0.create_builder();
     let mut code_gen = CodeGen::new(&context.0, &module, &builder, optimize);

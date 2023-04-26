@@ -10,7 +10,7 @@ use inkwell::{
 
 use crate::{
     op::Op,
-    span::{Span, Spanned},
+    pos::{Span, Spanned},
 };
 
 use super::error::CodeGenError;

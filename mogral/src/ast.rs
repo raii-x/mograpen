@@ -1,4 +1,4 @@
-use crate::{op::Op, span::Spanned};
+use crate::{op::Op, pos::Spanned};
 
 #[derive(Debug)]
 pub struct Module(pub Vec<Spanned<Func>>);

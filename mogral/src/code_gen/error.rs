@@ -1,8 +1,6 @@
-use std::fmt::Display;
-
 use thiserror::Error;
 
-use crate::{op::Op, span::Spanned};
+use crate::op::Op;
 
 use super::value::MglType;
 
@@ -25,10 +23,3 @@ pub enum CodeGenError {
     #[error("invalid operand types ({lhs:?} {op} {rhs:?})")]
     InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
 }
-
-impl Display for Spanned<CodeGenError> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}: {}", self.span.l, self.span.r, self.item)
-    }
-}
-impl std::error::Error for Spanned<CodeGenError> {}

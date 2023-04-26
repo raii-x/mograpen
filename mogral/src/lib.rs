@@ -7,12 +7,14 @@ mod code_gen;
 mod exec;
 mod op;
 mod parser;
-mod span;
+mod pos;
 mod wrapper;
 
 pub use code_gen::code_gen;
+pub use code_gen::error::CodeGenError;
 pub use exec::exec;
 pub use parser::parse;
+pub use pos::{SourcePosConverter, Span, Spanned};
 pub use wrapper::{MglContext, MglModule};
 
 #[cfg(test)]
