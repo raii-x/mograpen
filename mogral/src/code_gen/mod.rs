@@ -1,4 +1,5 @@
 pub mod error;
+pub mod types;
 mod value;
 
 use std::collections::HashMap;
@@ -16,7 +17,8 @@ use crate::pos::Spanned as Sp;
 use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
-use self::value::{MglType, MglValue, MglValueBuilder, MglVariable};
+use self::types::MglType;
+use self::value::{MglValue, MglValueBuilder, MglVariable};
 
 struct CodeGen<'ctx, 'a> {
     context: &'ctx Context,

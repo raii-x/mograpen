@@ -2,9 +2,9 @@ use thiserror::Error;
 
 use crate::op::Op;
 
-use super::value::MglType;
+use super::types::MglType;
 
-#[derive(Debug, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum CodeGenError {
     #[error("invalid generated function")]
     InvalidFunction,

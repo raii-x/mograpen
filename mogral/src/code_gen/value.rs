@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -13,15 +11,7 @@ use crate::{
     pos::{Span, Spanned},
 };
 
-use super::error::CodeGenError;
-
-/// MograLで使用する型
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum MglType {
-    Unit,
-    Double,
-    Bool,
-}
+use super::{error::CodeGenError, types::MglType};
 
 /// MograLで使用する値
 #[derive(Clone, Copy)]

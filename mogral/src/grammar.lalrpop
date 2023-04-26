@@ -86,10 +86,10 @@ StmtsInBlock:                               ast::Stmt = {
 
 If:                                         ast::If = {
     "if" <c:Sp<Expr>> <t:Sp<Block>>
-        <e:Sp<Else>?>                           => ast::If { cond: c, then: t, else_: e },
+        <e:Else?>                               => ast::If { cond: c, then: t, else_: e },
 };
-Else:                                       ast::Block = {
-    "else" <Block>,
+Else:                                       Spanned<ast::Block> = {
+    "else" <Sp<Block>>,
 };
 
 For:                                        ast::For = {

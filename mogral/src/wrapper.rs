@@ -2,6 +2,7 @@ use inkwell::{context::Context, module::Module};
 
 // 外部からinkwellを隠蔽するため、ContextとModuleをラップする
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct MglContext(pub(crate) Context);
 
 impl MglContext {
@@ -10,6 +11,7 @@ impl MglContext {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct MglModule<'ctx>(pub(crate) Module<'ctx>);
 
 impl<'ctx> MglModule<'ctx> {

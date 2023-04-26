@@ -12,7 +12,9 @@ mod wrapper;
 
 pub use code_gen::code_gen;
 pub use code_gen::error::CodeGenError;
+pub use code_gen::types::MglType;
 pub use exec::exec;
+pub use op::Op;
 pub use parser::parse;
 pub use pos::{SourcePosConverter, Span, Spanned};
 pub use wrapper::{MglContext, MglModule};
