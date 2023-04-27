@@ -2,7 +2,7 @@ extern crate mogral;
 
 use mogral::*;
 
-fn code_exec(code: &str, arg: f64) -> f64 {
+fn source_exec(code: &str, arg: f64) -> f64 {
     let context = MglContext::new();
     let module = code_gen(&context, &parse(code).unwrap(), false).unwrap();
     exec(&module, arg).unwrap()
@@ -10,16 +10,16 @@ fn code_exec(code: &str, arg: f64) -> f64 {
 
 #[test]
 fn call() {
-    let code = r#"
+    let source = r#"
 fn main() {
 	return 123;
 }"#;
-    assert_eq!(code_exec(code, 0.0), 123.0);
+    assert_eq!(source_exec(source, 0.0), 123.0);
 }
 
 #[test]
 fn if_() {
-    let code = r#"
+    let source = r#"
 fn main(x) {
 	if x < 3 {
 		return 5;
@@ -27,14 +27,14 @@ fn main(x) {
 		return 10;
 	}
 }"#;
-    assert_eq!(code_exec(code, 2.0), 5.0);
-    assert_eq!(code_exec(code, 3.0), 10.0);
-    assert_eq!(code_exec(code, 4.0), 10.0);
+    assert_eq!(source_exec(source, 2.0), 5.0);
+    assert_eq!(source_exec(source, 3.0), 10.0);
+    assert_eq!(source_exec(source, 4.0), 10.0);
 }
 
 #[test]
 fn variable() {
-    let code = r#"
+    let source = r#"
 fn main(x) {
 	v = 5;
 	for i, 3 {
@@ -42,37 +42,37 @@ fn main(x) {
 	}
 	return v;
 }"#;
-    assert_eq!(code_exec(code, 0.0), 8.0);
+    assert_eq!(source_exec(source, 0.0), 8.0);
 }
 
 #[test]
 fn early_return() {
-    let code = r#"
+    let source = r#"
 fn main(x) {
 	if x == 0 {
 		return 1;
 	}
 	return 2;
 }"#;
-    assert_eq!(code_exec(code, 0.0), 1.0);
-    assert_eq!(code_exec(code, 1.0), 2.0);
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
 }
 
 #[test]
 fn block_expression() {
-    let code = r#"
+    let source = r#"
 fn main(x) {
 	a = 3;
 	b = 1;
 	set a = { set b = b + 10; a + b };
 	a
 }"#;
-    assert_eq!(code_exec(code, 0.0), 14.0);
+    assert_eq!(source_exec(source, 0.0), 14.0);
 }
 
 #[test]
 fn if_expression() {
-    let code = r#"
+    let source = r#"
 fn main(x) {
 	return if x == 0 {
 		1
@@ -80,15 +80,15 @@ fn main(x) {
 		2
 	};
 }"#;
-    assert_eq!(code_exec(code, 0.0), 1.0);
-    assert_eq!(code_exec(code, 1.0), 2.0);
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
 }
 
 #[test]
 fn same_name_variables_between_functions() {
-    let code = r#"
+    let source = r#"
 fn sub() {a = 5; a}
 fn main(x) {a = 7; a}
 "#;
-    assert_eq!(code_exec(code, 0.0), 7.0);
+    assert_eq!(source_exec(source, 0.0), 7.0);
 }
