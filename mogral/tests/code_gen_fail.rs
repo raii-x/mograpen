@@ -118,3 +118,112 @@ fn main() {
         )
     );
 }
+
+#[test]
+fn invalid_operand_types_double_unit() {
+    for op in [
+        Op::Lt,
+        Op::Gt,
+        Op::Leq,
+        Op::Geq,
+        Op::Eq,
+        Op::Neq,
+        Op::Add,
+        Op::Sub,
+        Op::Mul,
+        Op::Div,
+    ] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = 0 {} {{}};
+}}
+"#,
+            op.as_str()
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 14 + op.as_str().len()),
+                InvalidOperandTypes {
+                    op,
+                    lhs: MglType::Double,
+                    rhs: MglType::Unit
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_operand_types_double_bool() {
+    for op in [
+        Op::Lt,
+        Op::Gt,
+        Op::Leq,
+        Op::Geq,
+        Op::Eq,
+        Op::Neq,
+        Op::Add,
+        Op::Sub,
+        Op::Mul,
+        Op::Div,
+    ] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = 0 {} (0 == 0);
+}}
+"#,
+            op.as_str()
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 20 + op.as_str().len()),
+                InvalidOperandTypes {
+                    op,
+                    lhs: MglType::Double,
+                    rhs: MglType::Bool
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_operand_types_ord_arith_bool() {
+    for op in [
+        Op::Lt,
+        Op::Gt,
+        Op::Leq,
+        Op::Geq,
+        Op::Add,
+        Op::Sub,
+        Op::Mul,
+        Op::Div,
+    ] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = (0 == 0) {} (0 == 0);
+}}
+"#,
+            op.as_str()
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 27 + op.as_str().len()),
+                InvalidOperandTypes {
+                    op,
+                    lhs: MglType::Bool,
+                    rhs: MglType::Bool
+                }
+            )
+        );
+    }
+}
