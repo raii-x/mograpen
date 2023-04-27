@@ -1,10 +1,12 @@
 use std::str::FromStr;
 use crate::ast;
+use crate::pos::{Span, Spanned};
+use crate::op::Op;
 
 grammar;
 
 pub Module:                                 ast::Module = {
-    Func*                                       => ast::Module(<>),
+    Sp<Func>*                                   => ast::Module(<>),
 };
 
 // Function
@@ -14,22 +16,22 @@ Func:                                       ast::Func = {
     FuncDef                                     => ast::Func::FuncDef(<>),
 };
 FuncDecl:                                   ast::FuncDecl = {
-    "fn" <n:Ident> "(" <p:Params> ")"           => ast::FuncDecl { name: n, params: p },
+    "fn" <n:Sp<Ident>> "(" <p:Params> ")"       => ast::FuncDecl { name: n, params: p },
 };
-Params = Comma<Ident>;
+Params = Comma<Sp<Ident>>;
 FuncDef:                                    ast::FuncDef = {
-    <d:FuncDecl> <b:Block>                      => ast::FuncDef { decl: d, body: b },
+    <d:Sp<FuncDecl>> <b:Sp<Block>>              => ast::FuncDef { decl: d, body: b },
 };
 
 // Statements
 
 Stmt:                                       ast::Stmt = {
-    <Assign> ";"                                => ast::Stmt::Assign(<>),
-    <Expr> ";"                                  => ast::Stmt::Expr(<>),
+    <Sp<Assign>> ";"                            => ast::Stmt::Assign(<>),
+    <Sp<Expr>> ";"                              => ast::Stmt::Expr(<>),
 };
 
 Assign:                                     ast::Assign = {
-    <i:Ident> "=" <e:Expr>                      => ast::Assign { var_name: i, val: e },
+    <i:Sp<Ident>> "=" <e:Sp<Expr>>              => ast::Assign { var_name: i, val: e },
 };
 
 // Expressions
@@ -61,9 +63,9 @@ Primary:                                    Box<ast::Expr> = {
 };
 
 FuncCall:                                   ast::FuncCall = {
-    <i:Ident> "(" <a:ArgList> ")"               => ast::FuncCall { func_name: i, args: a },
+    <i:Sp<Ident>> "(" <a:ArgList> ")"           => ast::FuncCall { func_name: i, args: a },
 };
-ArgList = Comma<Expr>;
+ArgList = Comma<Sp<Expr>>;
 
 ExprWithBlock:                              Box<ast::Expr> = {
     Block                                       => Box::new(ast::Expr::Block(<>)),
@@ -72,41 +74,44 @@ ExprWithBlock:                              Box<ast::Expr> = {
 };
 
 Block:                                      ast::Block = {
-    "{" <mut v:StmtsInBlock*> <s:Stmt> "}"      => { v.push(s); ast::Block { stmts: v, expr: None } },
-    "{" <v:StmtsInBlock*> <e:Expr> "}"          => ast::Block { stmts: v, expr: Some(e) },
+    "{" <mut v:Sp<StmtsInBlock>*> <s:Sp<Stmt>>
+        "}"                                     => { v.push(s); ast::Block { stmts: v, expr: None } },
+    "{" <v:Sp<StmtsInBlock>*> <e:Sp<Expr>> "}"  => ast::Block { stmts: v, expr: Some(e) },
     "{" "}"                                     => ast::Block { stmts: Vec::new(), expr: None },
 };
 StmtsInBlock:                               ast::Stmt = {
     Stmt,
-    ExprWithBlock                               => ast::Stmt::Expr(<>)
+    Sp<ExprWithBlock>                           => ast::Stmt::Expr(<>)
 };
 
 If:                                         ast::If = {
-    "if" <c:Expr> <t:Block> <e:Else?>           => ast::If { cond: c, then: t, else_: e },
+    "if" <c:Sp<Expr>> <t:Sp<Block>>
+        <e:Else?>                               => ast::If { cond: c, then: t, else_: e },
 };
-Else:                                       ast::Block = {
-    "else" <Block>,
+Else:                                       Spanned<ast::Block> = {
+    "else" <Sp<Block>>,
 };
 
 For:                                        ast::For = {
-    "for" <v:Ident> "," <u:Expr> <b:Block>      => ast::For { var_name: v, until: u, body: b },
+    "for" <v:Sp<Ident>> "," <u:Sp<Expr>>
+        <b:Sp<Block>>                           => ast::For { var_name: v, until: u, body: b },
 };
 
-CompOp:                                     ast::Op = {
-    "<"                                         => ast::Op::Lt,
-    ">"                                         => ast::Op::Gt,
-    "<="                                        => ast::Op::Leq,
-    ">="                                        => ast::Op::Geq,
-    "=="                                        => ast::Op::Eq,
-    "!="                                        => ast::Op::Neq,
+CompOp:                                     Op = {
+    "<"                                         => Op::Lt,
+    ">"                                         => Op::Gt,
+    "<="                                        => Op::Leq,
+    ">="                                        => Op::Geq,
+    "=="                                        => Op::Eq,
+    "!="                                        => Op::Neq,
 };
-AddOp:                                      ast::Op = {
-    "+"                                         => ast::Op::Add,
-    "-"                                         => ast::Op::Sub,
+AddOp:                                      Op = {
+    "+"                                         => Op::Add,
+    "-"                                         => Op::Sub,
 };
-MulOp:                                      ast::Op = {
-    "*"                                         => ast::Op::Mul,
-    "/"                                         => ast::Op::Div,
+MulOp:                                      Op = {
+    "*"                                         => Op::Mul,
+    "/"                                         => Op::Div,
 };
 
 Ident:                                      String = {
@@ -134,6 +139,12 @@ Comma<T>:                                   Vec<T> = {
 };
 
 Tier<Op, NextTier>:                         Box<ast::Expr> = {
-    Tier<Op, NextTier> Op NextTier              => Box::new(ast::Expr::Op(<>)),
+    <l:Sp<Tier<Op, NextTier>>> <o:Sp<Op>>
+        <r:Sp<NextTier>>                        => Box::new(ast::Expr::Op(ast::OpExpr { lhs: l, op: o, rhs: r })),
     NextTier
+};
+
+#[inline]
+Sp<Rule>:                                   Spanned<Rule> = {
+    <l:@L> <i:Rule> <r:@R>                      => Spanned { item: i, span: Span { l, r } }
 };

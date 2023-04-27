@@ -1,37 +1,20 @@
-use lalrpop_util::{lexer::Token, ParseError};
-
 #[macro_use]
 extern crate lalrpop_util;
 
 lalrpop_mod!(pub grammar);
 pub mod ast;
+mod code_gen;
+mod exec;
+mod op;
+mod parser;
+mod pos;
+mod wrapper;
 
-pub fn parse(input: &str) -> Result<ast::Module, ParseError<usize, Token<'_>, &'static str>> {
-    grammar::ModuleParser::new().parse(input)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn grammar() {
-        let code = r#"
-extern fn ext();
-fn main(a, b) {
-    set a = 5;
-    x = if b == 4 * 3 + (1 - 2) { 3 } else { ext() };
-	for i, 10 {
-        _3 = i / { ext(); .5 };
-        if i > b {
-            return 3.05;
-        }
-    }
-    0.3
-}"#;
-        assert!(match parse(code) {
-            Ok(_) => true,
-            Err(_) => false,
-        });
-    }
-}
+pub use code_gen::code_gen;
+pub use code_gen::error::CodeGenError;
+pub use code_gen::types::MglType;
+pub use exec::exec;
+pub use op::Op;
+pub use parser::parse;
+pub use pos::{SourcePosConverter, Span, Spanned};
+pub use wrapper::{MglContext, MglModule};
