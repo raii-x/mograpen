@@ -150,3 +150,21 @@ fn main(x) {
 "#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
+
+#[test]
+fn ord_double() {
+    let source = r#"
+fn main(x) {
+	if 3 < 3 { return 1; }
+	if 3 > 3 { return 1; }
+	if 3 <= 3 {} else { return 1; }
+	if 3 >= 3 {} else { return 1; }
+	if 3 < 4 {} else { return 1; }
+	if 3 > 4 { return 1; }
+	if 3 <= 4 {} else { return 1; }
+	if 3 >= 4 { return 1; }
+	0
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+}
