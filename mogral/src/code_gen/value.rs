@@ -3,7 +3,7 @@ use inkwell::{
     context::Context,
     types::{BasicType, BasicTypeEnum},
     values::{BasicValue, BasicValueEnum, FunctionValue, InstructionValue, PointerValue},
-    FloatPredicate,
+    FloatPredicate, IntPredicate,
 };
 
 use crate::{
@@ -51,6 +51,18 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 self.context
                     .f64_type()
                     .const_float(value)
+                    .as_basic_value_enum(),
+            ),
+        }
+    }
+
+    pub fn bool(&self, value: bool) -> MglValue<'ctx> {
+        MglValue {
+            type_: MglType::Bool,
+            value: Some(
+                self.context
+                    .bool_type()
+                    .const_int(if value { 1 } else { 0 }, false)
                     .as_basic_value_enum(),
             ),
         }
@@ -226,81 +238,110 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
 
         match lhs.type_ {
             MglType::Double => {
-                let lhs = lhs.value.unwrap().into_float_value();
-                let rhs = rhs.value.unwrap().into_float_value();
+                let lhs_v = lhs.value.unwrap().into_float_value();
+                let rhs_v = rhs.value.unwrap().into_float_value();
 
                 match op {
-                    Op::Lt => Ok(MglValue {
+                    Op::Lt => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::ULT, lhs, rhs, "lttmp")
+                                .build_float_compare(FloatPredicate::ULT, lhs_v, rhs_v, "lttmp")
                                 .into(),
                         ),
                     }),
-                    Op::Gt => Ok(MglValue {
+                    Op::Gt => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::UGT, lhs, rhs, "gttmp")
+                                .build_float_compare(FloatPredicate::UGT, lhs_v, rhs_v, "gttmp")
                                 .into(),
                         ),
                     }),
-                    Op::Leq => Ok(MglValue {
+                    Op::Leq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::ULE, lhs, rhs, "letmp")
+                                .build_float_compare(FloatPredicate::ULE, lhs_v, rhs_v, "letmp")
                                 .into(),
                         ),
                     }),
-                    Op::Geq => Ok(MglValue {
+                    Op::Geq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::UGE, lhs, rhs, "getmp")
+                                .build_float_compare(FloatPredicate::UGE, lhs_v, rhs_v, "getmp")
                                 .into(),
                         ),
                     }),
-                    Op::Eq => Ok(MglValue {
+                    Op::Eq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::UEQ, lhs, rhs, "eqtmp")
+                                .build_float_compare(FloatPredicate::UEQ, lhs_v, rhs_v, "eqtmp")
                                 .into(),
                         ),
                     }),
-                    Op::Neq => Ok(MglValue {
+                    Op::Neq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
-                                .build_float_compare(FloatPredicate::UNE, lhs, rhs, "netmp")
+                                .build_float_compare(FloatPredicate::UNE, lhs_v, rhs_v, "netmp")
                                 .into(),
                         ),
                     }),
-                    Op::Add => Ok(MglValue {
+                    Op::Add => Some(MglValue {
                         type_: MglType::Double,
-                        value: Some(self.builder.build_float_add(lhs, rhs, "addtmp").into()),
+                        value: Some(self.builder.build_float_add(lhs_v, rhs_v, "addtmp").into()),
                     }),
-                    Op::Sub => Ok(MglValue {
+                    Op::Sub => Some(MglValue {
                         type_: MglType::Double,
-                        value: Some(self.builder.build_float_sub(lhs, rhs, "subtmp").into()),
+                        value: Some(self.builder.build_float_sub(lhs_v, rhs_v, "subtmp").into()),
                     }),
-                    Op::Mul => Ok(MglValue {
+                    Op::Mul => Some(MglValue {
                         type_: MglType::Double,
-                        value: Some(self.builder.build_float_mul(lhs, rhs, "multmp").into()),
+                        value: Some(self.builder.build_float_mul(lhs_v, rhs_v, "multmp").into()),
                     }),
-                    Op::Div => Ok(MglValue {
+                    Op::Div => Some(MglValue {
                         type_: MglType::Double,
-                        value: Some(self.builder.build_float_div(lhs, rhs, "divtmp").into()),
+                        value: Some(self.builder.build_float_div(lhs_v, rhs_v, "divtmp").into()),
                     }),
                 }
             }
-            _ => Err(CodeGenError::InvalidOperandTypes {
-                op,
-                lhs: lhs.type_,
-                rhs: rhs.type_,
-            }),
+            MglType::Bool => {
+                let lhs_v = lhs.value.unwrap().into_int_value();
+                let rhs_v = rhs.value.unwrap().into_int_value();
+
+                match op {
+                    Op::Eq => Some(MglValue {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::EQ, lhs_v, rhs_v, "eqtmp")
+                                .into(),
+                        ),
+                    }),
+                    Op::Neq => Some(MglValue {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::NE, lhs_v, rhs_v, "eqtmp")
+                                .into(),
+                        ),
+                    }),
+                    _ => None,
+                }
+            }
+            MglType::Unit => match op {
+                Op::Eq => Some(self.bool(true)),
+                Op::Neq => Some(self.bool(false)),
+                _ => None,
+            },
         }
+        .ok_or(CodeGenError::InvalidOperandTypes {
+            op,
+            lhs: lhs.type_,
+            rhs: rhs.type_,
+        })
     }
 }
