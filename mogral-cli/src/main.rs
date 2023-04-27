@@ -20,9 +20,11 @@ fn main() {
 fn compile(buffer: &mut String) -> Result<(), Box<dyn Error + '_>> {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() >= 1 {
+    if args.len() > 1 {
+        // ファイルから読み込み
         File::open(&args[1])?.read_to_string(buffer)?;
     } else {
+        // 標準入力から読み込み
         io::stdin().read_to_string(buffer)?;
     }
 
