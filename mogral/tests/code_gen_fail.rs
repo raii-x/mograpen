@@ -227,3 +227,42 @@ fn main() {{
         );
     }
 }
+
+#[test]
+fn unresolved_name_variable_ref() {
+    let source = r#"
+fn main() {
+    x
+}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
+    );
+}
+
+#[test]
+fn unresolved_name_variable_set() {
+    let source = r#"
+fn main() {
+    set x = 0;
+}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((3, 9), (3, 10), UnresolvedName("x".to_owned()))
+    );
+}
+
+#[test]
+fn unresolved_name_func_call() {
+    let source = r#"
+fn main() {
+    x();
+}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
+    );
+}
