@@ -92,3 +92,21 @@ fn main(x) {a = 7; a}
 "#;
     assert_eq!(source_exec(source, 0.0), 7.0);
 }
+
+#[test]
+fn arith() {
+    for (op, ans) in [
+        (Op::Add, 8.0),
+        (Op::Sub, 4.0),
+        (Op::Mul, 12.0),
+        (Op::Div, 3.0),
+    ] {
+        let source = format!(
+            r#"
+fn main(x) {{ 6 {} 2 }}
+"#,
+            op
+        );
+        assert_eq!(source_exec(&source, 0.0), ans);
+    }
+}
