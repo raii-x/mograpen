@@ -14,19 +14,25 @@ pub enum Op {
     Div,
 }
 
+impl Op {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Op::Lt => "<",
+            Op::Gt => ">",
+            Op::Leq => "<=",
+            Op::Geq => ">=",
+            Op::Eq => "==",
+            Op::Neq => "!=",
+            Op::Add => "+",
+            Op::Sub => "-",
+            Op::Mul => "*",
+            Op::Div => "/",
+        }
+    }
+}
+
 impl Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Op::Lt => write!(f, "<"),
-            Op::Gt => write!(f, ">"),
-            Op::Leq => write!(f, "<="),
-            Op::Geq => write!(f, ">="),
-            Op::Eq => write!(f, "=="),
-            Op::Neq => write!(f, "!="),
-            Op::Add => write!(f, "+"),
-            Op::Sub => write!(f, "-"),
-            Op::Mul => write!(f, "*"),
-            Op::Div => write!(f, "/"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
