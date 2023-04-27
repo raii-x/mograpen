@@ -85,6 +85,29 @@ fn main(x) {
 }
 
 #[test]
+fn for_variable() {
+    let source = r#"
+fn main(x) {
+	for i, 5 {
+        set i = 10;
+        set x = x + 1;
+	}
+    x
+}"#;
+    assert_eq!(source_exec(source, 10.0), 11.0);
+}
+
+#[test]
+fn for_shadowing() {
+    let source = r#"
+fn main(x) {
+	for x, 5 {}
+    x
+}"#;
+    assert_eq!(source_exec(source, 10.0), 10.0);
+}
+
+#[test]
 fn same_name_variables_between_functions() {
     let source = r#"
 fn sub() {a = 5; a}

@@ -268,6 +268,19 @@ fn main() {
 }
 
 #[test]
+fn for_variable_scope() {
+    let source = r#"
+fn main() {
+	for i, 5 {}
+    i
+}"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((4, 5), (4, 6), UnresolvedName("i".to_owned()))
+    );
+}
+
+#[test]
 fn variable_already_exists() {
     let source = r#"
 fn main() {
