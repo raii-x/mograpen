@@ -8,16 +8,14 @@ use super::types::MglType;
 pub enum CodeGenError {
     #[error("invalid generated function")]
     InvalidFunction,
-    #[error("unknown variable name")]
-    UnknownVariableName,
-    #[error("variable already exists")]
-    VariableAlreadyExists,
-    #[error("unknown function referenced")]
-    UnknownFunction,
-    #[error("incorrect number of arguments passed")]
-    IncorrectNumberOfArguments,
     #[error("invalid call produced")]
     InvalidCall,
+    #[error("unresolved name: `{0}`")]
+    UnresolvedName(String),
+    #[error("variable already exists: `{0}`")]
+    VariableAlreadyExists(String),
+    #[error("invalid number of arguments passed (expected {expected:?}, found {found:?})")]
+    InvalidNumberOfArguments { expected: u32, found: u32 },
     #[error("mismatched types (expected {expected:?}, found {found:?})")]
     MismatchedTypes { expected: MglType, found: MglType },
     #[error("invalid operand types ({lhs:?} {op} {rhs:?})")]

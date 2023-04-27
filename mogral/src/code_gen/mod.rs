@@ -199,14 +199,14 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let var = if set {
             // 再代入の場合、変数が存在しない場合にエラー
             *self.variables.get(&item.var_name.item).ok_or(Sp::new(
-                CodeGenError::UnknownVariableName,
+                CodeGenError::UnresolvedName(item.var_name.item.to_owned()),
                 item.var_name.span,
             ))?
         } else {
             // 新規変数宣言の場合、既に変数が存在する場合にエラー
             if self.variables.contains_key(&item.var_name.item) {
                 return Err(Sp::new(
-                    CodeGenError::VariableAlreadyExists,
+                    CodeGenError::VariableAlreadyExists(item.var_name.item.to_owned()),
                     item.var_name.span,
                 ));
             }
@@ -242,7 +242,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 let var = *self
                     .variables
                     .get(i)
-                    .ok_or(Sp::new(CodeGenError::UnknownVariableName, span))?;
+                    .ok_or(Sp::new(CodeGenError::UnresolvedName(i.to_owned()), span))?;
                 Ok(Some(self.value_builder.build_load(var)))
             }
             ast::Expr::FuncCall(fc) => self.gen_func_call(Sp::new(fc, span)),
@@ -284,11 +284,20 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let func = self
             .module
             .get_function(&item.func_name.item)
-            .ok_or(Sp::new(CodeGenError::UnknownFunction, item.func_name.span))?;
+            .ok_or(Sp::new(
+                CodeGenError::UnresolvedName(item.func_name.item.to_owned()),
+                item.func_name.span,
+            ))?;
 
         // 引数の数のチェック
         if item.args.len() != func.count_params() as usize {
-            return Err(Sp::new(CodeGenError::IncorrectNumberOfArguments, span));
+            return Err(Sp::new(
+                CodeGenError::InvalidNumberOfArguments {
+                    expected: func.count_params(),
+                    found: item.args.len() as u32,
+                },
+                span,
+            ));
         }
 
         // 引数の配列を作成
