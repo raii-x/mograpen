@@ -266,3 +266,17 @@ fn main() {
         ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
     );
 }
+
+#[test]
+fn variable_already_exists() {
+    let source = r#"
+fn main() {
+    x = 0;
+    x = 1;
+}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((4, 5), (4, 6), VariableAlreadyExists("x".to_owned()))
+    );
+}
