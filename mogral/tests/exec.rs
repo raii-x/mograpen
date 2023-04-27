@@ -110,3 +110,43 @@ fn main(x) {{ 6 {} 2 }}
         assert_eq!(source_exec(&source, 0.0), ans);
     }
 }
+
+#[test]
+fn eq_neq_double() {
+    let source = r#"
+fn main(x) {
+	if 3 == 3 {} else { return 1; }
+	if 3 == 4 { return 1; }
+	if 3 != 3 { return 1; }
+	if 3 != 4 {} else { return 1; }
+	0
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+}
+
+#[test]
+fn eq_neq_bool() {
+    let source = r#"
+fn main(x) {
+	if (0 == 0) == (0 == 0) {} else { return 1; }
+	if (0 == 0) == (0 == 1) { return 1; }
+	if (0 == 0) != (0 == 0) { return 1; }
+	if (0 == 0) != (0 == 1) {} else { return 1; }
+	0
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+}
+
+#[test]
+fn eq_neq_unit() {
+    let source = r#"
+fn main(x) {
+	if {} == {} {} else { return 1; }
+	if {} != {} { return 1; }
+	0
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+}
