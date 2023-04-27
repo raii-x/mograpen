@@ -280,3 +280,24 @@ fn main() {
         ((4, 5), (4, 6), VariableAlreadyExists("x".to_owned()))
     );
 }
+
+#[test]
+fn invalid_number_of_arguments() {
+    let source = r#"
+fn f(x) { x }
+fn main() {
+    f(0, 1);
+}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        (
+            (4, 5),
+            (4, 12),
+            InvalidNumberOfArguments {
+                expected: 1,
+                found: 2
+            }
+        )
+    );
+}
