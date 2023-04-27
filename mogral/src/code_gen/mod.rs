@@ -177,11 +177,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     }
 
     fn gen_stmt(&mut self, ast: Sp<&ast::Stmt>) -> Result<Option<()>, Sp<CodeGenError>> {
-        let Sp { item, span } = ast;
+        let Sp { item, span: _ } = ast;
 
         let res = match item {
-            ast::Stmt::Assign(a) => self.gen_assign(Sp::new(a, span), false),
-            ast::Stmt::Expr(e) => self.gen_expr(Sp::new(e, span)),
+            ast::Stmt::Assign(a) => self.gen_assign(a.as_ref(), false),
+            ast::Stmt::Expr(e) => self.gen_expr(e.as_ref()),
         }?;
         // 式の評価結果を捨てる
         Ok(res.and(Some(())))

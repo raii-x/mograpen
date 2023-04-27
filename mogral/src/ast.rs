@@ -23,8 +23,8 @@ pub struct FuncDef {
 
 #[derive(Debug)]
 pub enum Stmt {
-    Assign(Assign),
-    Expr(Box<Expr>),
+    Assign(Spanned<Assign>),
+    Expr(Spanned<Box<Expr>>),
 }
 
 #[derive(Debug)]

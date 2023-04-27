@@ -26,8 +26,8 @@ FuncDef:                                    ast::FuncDef = {
 // Statements
 
 Stmt:                                       ast::Stmt = {
-    <Assign> ";"                                => ast::Stmt::Assign(<>),
-    <Expr> ";"                                  => ast::Stmt::Expr(<>),
+    <Sp<Assign>> ";"                            => ast::Stmt::Assign(<>),
+    <Sp<Expr>> ";"                              => ast::Stmt::Expr(<>),
 };
 
 Assign:                                     ast::Assign = {
@@ -81,7 +81,7 @@ Block:                                      ast::Block = {
 };
 StmtsInBlock:                               ast::Stmt = {
     Stmt,
-    ExprWithBlock                               => ast::Stmt::Expr(<>)
+    Sp<ExprWithBlock>                           => ast::Stmt::Expr(<>)
 };
 
 If:                                         ast::If = {
