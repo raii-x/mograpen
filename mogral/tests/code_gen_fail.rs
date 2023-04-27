@@ -3,14 +3,19 @@ extern crate mogral;
 use mogral::CodeGenError::*;
 use mogral::*;
 
-fn code_gen_fail(source: &str) -> (usize, usize, CodeGenError) {
+/// 引数のソースコードのコンパイル時のコード生成でのエラーを取得し、
+/// エラー開始位置の行・列番号、エラー終了位置の行・列番号、エラー内容をタプルで返す
+fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError) {
     let context = MglContext::new();
     let err = code_gen(&context, &parse(source).unwrap(), false).unwrap_err();
 
     let conv = SourcePosConverter::new(source);
-    let (line, col) = conv.pos_to_line_col(err.span.l);
 
-    (line, col, err.item)
+    (
+        conv.pos_to_line_col(err.span.l),
+        conv.pos_to_line_col(err.span.r),
+        err.item,
+    )
 }
 
 #[test]
@@ -23,8 +28,8 @@ fn main() {
     assert_eq!(
         code_gen_fail(source),
         (
-            3,
-            9,
+            (3, 9),
+            (3, 24),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -43,8 +48,8 @@ fn main() {
     assert_eq!(
         code_gen_fail(source),
         (
-            3,
-            9,
+            (3, 9),
+            (3, 15),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
@@ -63,8 +68,8 @@ fn main() {
     assert_eq!(
         code_gen_fail(source),
         (
-            3,
-            8,
+            (3, 8),
+            (3, 9),
             MismatchedTypes {
                 expected: MglType::Bool,
                 found: MglType::Double
@@ -83,8 +88,8 @@ fn main() {
     assert_eq!(
         code_gen_fail(source),
         (
-            3,
-            30,
+            (3, 30),
+            (3, 32),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -104,8 +109,8 @@ fn main() {
     assert_eq!(
         code_gen_fail(source),
         (
-            4,
-            7,
+            (4, 7),
+            (4, 13),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
