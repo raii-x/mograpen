@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub grammar);
 pub mod ast;
 mod code_gen;
 mod exec;
