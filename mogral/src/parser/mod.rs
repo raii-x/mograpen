@@ -1,3 +1,5 @@
+pub mod error;
+
 lalrpop_mod!(grammar);
 
 use lalrpop_util::{lexer::Token, ParseError};
