@@ -1,6 +1,6 @@
 pub mod error;
 
-lalrpop_mod!(grammar);
+lalrpop_mod!(grammar, "/parser/grammar.rs");
 
 use lalrpop_util::{lexer::Token, ParseError};
 
