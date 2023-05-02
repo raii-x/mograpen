@@ -36,7 +36,7 @@ pub struct MglVariable<'ctx> {
     pub alloca: Option<PointerValue<'ctx>>,
 }
 
-/// MglValueを扱う命令を作成ための構造体
+/// MglValueを扱う命令を作成するための構造体
 pub struct MglValueBuilder<'ctx, 'a> {
     pub context: &'ctx Context,
     pub builder: &'a Builder<'ctx>,
