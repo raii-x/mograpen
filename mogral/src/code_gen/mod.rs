@@ -80,15 +80,33 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
+        // 引数型を作成
+        let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::with_capacity(item.params.len());
+        let mut param_names: Vec<&str> = Vec::with_capacity(item.params.len());
+
+        for param in &item.params {
+            let Sp {
+                item: p_item,
+                span: _,
+            } = param;
+
+            // MglTypeに対応するinkwellの型がある引数のみを追加
+            if let Some(ty) = self.value_builder.ink_type(p_item.type_.item) {
+                param_types.push(ty.into());
+                param_names.push(&p_item.ident.item);
+            }
+        }
+
+        // 戻り値型を作成
+        let ret_type = self.context.f64_type();
+
         // 関数を作成
-        let f64_type = self.context.f64_type();
-        let param_types: Vec<BasicMetadataTypeEnum> = vec![f64_type.into(); item.params.len()];
-        let fn_type = f64_type.fn_type(&param_types, false);
+        let fn_type = ret_type.fn_type(&param_types, false);
         let fn_val = self.module.add_function(&item.name.item, fn_type, None);
 
         // 引数の名前を設定
         for (i, arg) in fn_val.get_param_iter().enumerate() {
-            arg.into_float_value().set_name(&item.params[i].item);
+            arg.set_name(param_names[i]);
         }
 
         Ok(fn_val)
@@ -119,13 +137,16 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 value: Some(arg),
             };
 
-            let var = self
-                .value_builder
-                .create_variable(function, MglType::Double, &arg_name.item);
+            let var = self.value_builder.create_variable(
+                function,
+                MglType::Double,
+                &arg_name.item.ident.item,
+            );
             self.value_builder
                 .build_store(var, Sp::new(arg, arg_name.span))?;
 
-            self.variables.insert(decl.params[i].item.clone(), var);
+            self.variables
+                .insert(decl.params[i].item.ident.item.clone(), var);
         }
 
         // 関数本体のコード生成

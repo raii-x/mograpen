@@ -2,6 +2,7 @@ use std::str::FromStr;
 use crate::ast;
 use crate::pos::{Span, Spanned};
 use crate::op::Op;
+use crate::types::MglType;
 
 grammar;
 
@@ -18,7 +19,7 @@ Func:                                       ast::Func = {
 FuncDecl:                                   ast::FuncDecl = {
     "fn" <n:Sp<Ident>> "(" <p:Params> ")"       => ast::FuncDecl { name: n, params: p },
 };
-Params = Comma<Sp<Ident>>;
+Params = Comma<Sp<TypedIdent>>;
 FuncDef:                                    ast::FuncDef = {
     <d:Sp<FuncDecl>> <b:Sp<Block>>              => ast::FuncDef { decl: d, body: b },
 };
@@ -97,6 +98,10 @@ For:                                        ast::For = {
         <b:Sp<Block>>                           => ast::For { var_name: v, until: u, body: b },
 };
 
+TypedIdent:                                 ast::TypedIdent = {
+    <i:Sp<Ident>> ":" <t:Sp<Type>>              => ast::TypedIdent { ident: i, type_: t },
+}
+
 CompOp:                                     Op = {
     "<"                                         => Op::Lt,
     ">"                                         => Op::Gt,
@@ -126,6 +131,11 @@ Integer:                                    f64 = {
 }
 Float:                                      f64 = {
     r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
+}
+Type:                                       MglType = {
+    "(" ")"                                     => MglType::Unit,
+    "double"                                    => MglType::Double,
+    "bool"                                      => MglType::Bool,
 }
 
 Comma<T>:                                   Vec<T> = {
