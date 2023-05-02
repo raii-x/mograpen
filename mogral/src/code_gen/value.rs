@@ -9,9 +9,10 @@ use inkwell::{
 use crate::{
     op::Op,
     pos::{Span, Spanned},
+    types::MglType,
 };
 
-use super::{error::CodeGenError, types::MglType};
+use super::error::CodeGenError;
 
 /// MograLで使用する値
 #[derive(Clone, Copy)]

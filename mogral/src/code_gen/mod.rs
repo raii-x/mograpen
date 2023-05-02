@@ -1,5 +1,4 @@
 pub mod error;
-pub mod types;
 mod value;
 
 use std::collections::HashMap;
@@ -14,10 +13,10 @@ use inkwell::values::FunctionValue;
 use crate::ast;
 use crate::op::Op;
 use crate::pos::Spanned as Sp;
+use crate::types::MglType;
 use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
-use self::types::MglType;
 use self::value::{MglValue, MglValueBuilder, MglVariable};
 
 struct CodeGen<'ctx, 'a> {

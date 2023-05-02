@@ -1,8 +1,7 @@
 use thiserror::Error;
 
 use crate::op::Op;
-
-use super::types::MglType;
+use crate::types::MglType;
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum CodeGenError {
