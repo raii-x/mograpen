@@ -1,5 +1,8 @@
 use egui::{Key, KeyboardShortcut, Modifiers};
-use mogral::{code_gen, exec, parse, parse_error_pos, MglContext, SourcePosConverter};
+use mogral::{
+    ast::{self, ASTNode},
+    code_gen, exec, parse, parse_error_pos, MglContext, SourcePosConverter,
+};
 use strum_macros::{Display, EnumString, IntoStaticStr};
 
 #[derive(
@@ -146,7 +149,7 @@ struct AppContext {
     #[serde(skip)]
     pub error: String,
     #[serde(skip)]
-    pub ast: String,
+    pub ast: Option<ast::Module>,
     #[serde(skip)]
     pub llvm_ir: String,
     #[serde(skip)]
@@ -164,7 +167,7 @@ impl AppContext {
         Self {
             code: String::new(),
             error: String::new(),
-            ast: String::new(),
+            ast: None,
             llvm_ir: String::new(),
             exec_result: String::new(),
             optimize: true,
@@ -175,7 +178,7 @@ impl AppContext {
 
     fn execute(&mut self, until_stage: ExecuteStage) {
         self.error.clear();
-        self.ast.clear();
+        self.ast = None;
         self.llvm_ir.clear();
         self.exec_result.clear();
 
@@ -183,7 +186,7 @@ impl AppContext {
 
         // パース
 
-        let ast = match parse(&self.code) {
+        self.ast = Some(match parse(&self.code) {
             Ok(ast) => ast,
             Err(e) => {
                 let (line, col) = conv.pos_to_line_col(parse_error_pos(&e));
@@ -191,8 +194,8 @@ impl AppContext {
                 self.error = format!("{}:{}: {}", line, col, e);
                 return;
             }
-        };
-        self.ast = format!("{:?}", ast);
+        });
+        let ast = self.ast.as_ref().unwrap();
 
         if until_stage == ExecuteStage::Parse {
             return;
@@ -201,7 +204,7 @@ impl AppContext {
         // コード生成
 
         let context = MglContext::new();
-        let module = match code_gen(&context, &ast, self.optimize) {
+        let module = match code_gen(&context, ast, self.optimize) {
             Ok(module) => module,
             Err(e) => {
                 let (line, col) = conv.pos_to_line_col(e.span.l);
@@ -224,7 +227,7 @@ impl AppContext {
                 return;
             }
         };
-        self.exec_result = exec_result.to_string();
+        self.exec_result = exec_result.node_to_string();
     }
 }
 
@@ -260,7 +263,9 @@ impl egui_dock::TabViewer for AppContext {
                 ui.label(&self.error);
             }
             Tab::AST => {
-                ui.label(&self.ast);
+                if let Some(ast) = &self.ast {
+                    show_ast(ui, ast);
+                }
             }
             Tab::LlvmIr => {
                 ui.label(&self.llvm_ir);
@@ -275,4 +280,28 @@ impl egui_dock::TabViewer for AppContext {
         let s: &str = (*tab).into();
         s.into()
     }
+}
+
+fn show_ast_inner(ui: &mut egui::Ui, name: String, ast: &dyn ASTNode) {
+    if ast.children().is_empty() {
+        ui.label("      ".to_owned() + &name + ": " + &ast.node_to_string());
+    } else {
+        egui::CollapsingHeader::new(name + ": " + &ast.node_to_string())
+            .default_open(true)
+            .show(ui, |ui| {
+                for child in ast.children() {
+                    show_ast_inner(ui, child.0, child.1);
+                }
+            });
+    }
+}
+
+fn show_ast(ui: &mut egui::Ui, ast: &dyn ASTNode) {
+    egui::CollapsingHeader::new(ast.node_to_string())
+        .default_open(true)
+        .show(ui, |ui| {
+            for child in ast.children() {
+                show_ast_inner(ui, child.0, child.1);
+            }
+        });
 }
