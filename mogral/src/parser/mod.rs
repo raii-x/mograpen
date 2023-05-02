@@ -1,6 +1,10 @@
+pub mod error;
+
+lalrpop_mod!(grammar, "/parser/grammar.rs");
+
 use lalrpop_util::{lexer::Token, ParseError};
 
-use crate::{ast, grammar};
+use crate::ast;
 
 pub fn parse(input: &str) -> Result<ast::Module, ParseError<usize, Token<'_>, &'static str>> {
     grammar::ModuleParser::new().parse(input)

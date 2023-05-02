@@ -66,7 +66,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     }
 
     fn gen_module(&mut self, ast: &ast::Module) -> Result<(), Sp<CodeGenError>> {
-        for func in &ast.0 {
+        for func in &ast.funcs {
             match &func.item {
                 ast::Func::Extern(e) => self.gen_func_decl(Sp::new(e, func.span)),
                 ast::Func::FuncDef(f) => self.gen_func_def(Sp::new(f, func.span)),

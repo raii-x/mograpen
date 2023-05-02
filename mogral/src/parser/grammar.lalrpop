@@ -6,7 +6,7 @@ use crate::op::Op;
 grammar;
 
 pub Module:                                 ast::Module = {
-    Sp<Func>*                                   => ast::Module(<>),
+    Sp<Func>*                                   => ast::Module { funcs: <> },
 };
 
 // Function

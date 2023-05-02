@@ -1,4 +1,4 @@
-use mogral::{self, code_gen, exec, parse, CodeGenError, MglContext, SourcePosConverter};
+use mogral::{self, code_gen, exec, parse, parse_error_pos, MglContext, SourcePosConverter};
 use std::{
     env,
     error::Error,
@@ -28,19 +28,14 @@ fn compile(buffer: &mut String) -> Result<(), Box<dyn Error + '_>> {
         io::stdin().read_to_string(buffer)?;
     }
 
-    let ast = parse(buffer)?;
-
     let pos_conv = SourcePosConverter::new(buffer);
 
+    let ast = parse(buffer)
+        .map_err(|err| LineColError::new(parse_error_pos(&err), &pos_conv, Box::new(err)))?;
+
     let context = MglContext::new();
-    let module = code_gen(&context, &ast, false).map_err(|err| {
-        let (line, col) = pos_conv.pos_to_line_col(err.span.l);
-        LineColError {
-            line,
-            col,
-            error: err.item,
-        }
-    })?;
+    let module = code_gen(&context, &ast, false)
+        .map_err(|err| LineColError::new(err.span.l, &pos_conv, Box::new(err.item)))?;
     println!("{}", module.to_string());
 
     let res = exec(&module, 1.0)?;
@@ -51,8 +46,15 @@ fn compile(buffer: &mut String) -> Result<(), Box<dyn Error + '_>> {
 
 #[derive(Debug, Error)]
 #[error("{line}:{col}: {error}")]
-pub struct LineColError {
+pub struct LineColError<'a> {
     line: usize,
     col: usize,
-    error: CodeGenError,
+    error: Box<dyn Error + 'a>,
+}
+
+impl<'a> LineColError<'a> {
+    fn new(pos: usize, pos_conv: &SourcePosConverter, error: Box<dyn Error + 'a>) -> Self {
+        let (line, col) = pos_conv.pos_to_line_col(pos);
+        Self { line, col, error }
+    }
 }
