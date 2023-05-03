@@ -167,43 +167,41 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     /// 関数呼び出し命令を作成する
     pub fn build_call(
         &self,
-        function: FunctionValue<'ctx>,
+        function: &MglFunction<'ctx>,
         args: &[Spanned<MglValue<'ctx>>],
         name: &str,
-        span: Span,
     ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
-        let mut ink_args = Vec::new();
-        for arg in args {
+        // inkwellの引数のVecを作成
+        let mut ink_args = Vec::with_capacity(args.len());
+        for (param_ty, arg) in function.params.iter().zip(args) {
             // 引数の型チェック
-            // TODO: Double型以外を渡せるようにする
-            if arg.item.type_ != MglType::Double {
+            if arg.item.type_ != *param_ty {
                 return Err(Spanned::new(
                     CodeGenError::MismatchedTypes {
-                        expected: MglType::Double,
+                        expected: *param_ty,
                         found: arg.item.type_,
                     },
                     arg.span,
                 ));
             }
 
+            // 引数に追加
             if let Some(val) = arg.item.value {
                 ink_args.push(val.into());
             }
         }
 
-        match self
-            .builder
-            .build_call(function, &ink_args, name)
-            .try_as_basic_value()
-            .left()
-        {
-            // TODO: Double型以外の戻り値に対応する
-            Some(val) => Ok(Some(MglValue {
-                type_: MglType::Double,
-                value: Some(val),
-            })),
-            None => Err(Spanned::new(CodeGenError::InvalidCall, span)),
-        }
+        // 関数呼び出し命令を作成
+        let call_site = self.builder.build_call(function.value, &ink_args, name);
+
+        // 関数の戻り値を返す
+        Ok(Some(MglValue {
+            type_: function.ret,
+            value: match self.ink_type(function.ret) {
+                Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
+                None => None,
+            },
+        }))
     }
 
     /// 演算命令を作成する

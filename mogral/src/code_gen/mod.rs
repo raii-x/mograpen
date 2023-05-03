@@ -353,19 +353,20 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 関数名から関数を取得
         let func = self
-            .module
-            .get_function(&item.func_name.item)
+            .functions
+            .get(&item.func_name.item)
             .ok_or(Sp::new(
                 CodeGenError::UnresolvedName(item.func_name.item.to_owned()),
                 item.func_name.span,
-            ))?;
+            ))?
+            .clone();
 
         // 引数の数のチェック
-        if item.args.len() != func.count_params() as usize {
+        if item.args.len() != func.params.len() {
             return Err(Sp::new(
                 CodeGenError::InvalidNumberOfArguments {
-                    expected: func.count_params(),
-                    found: item.args.len() as u32,
+                    expected: func.params.len(),
+                    found: item.args.len(),
                 },
                 span,
             ));
@@ -383,7 +384,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 関数呼び出し命令を作成
         self.value_builder
-            .build_call(func, &args, &item.func_name.item, span)
+            .build_call(&func, &args, &item.func_name.item)
     }
 
     fn gen_if(&mut self, ast: Sp<&ast::If>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
