@@ -92,7 +92,7 @@ ast_node_enum! {
     Set(Assign),
     Return(Box<Expr>),
     Op(OpExpr),
-    Number(f64),
+    Literal(Literal),
     Ident(String),
     FuncCall(FuncCall),
     Block(Block),
@@ -105,6 +105,14 @@ ast_node_struct! {
     lhs: Spanned<Box<Expr>>,
     op: Spanned<Op>,
     rhs: Spanned<Box<Expr>>
+}
+
+ast_node_enum! {
+    Literal;
+    // unit型は0要素のタプルとすべきだが、暫定的に()をリテラルとしている
+    Unit(()),
+    Float(f64),
+    Bool(bool)
 }
 
 ast_node_struct! {
@@ -148,7 +156,25 @@ impl ASTNode for String {
     }
 }
 
+impl ASTNode for () {
+    fn node_to_string(&self) -> String {
+        "()".to_owned()
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
 impl ASTNode for f64 {
+    fn node_to_string(&self) -> String {
+        self.to_string()
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
+impl ASTNode for bool {
     fn node_to_string(&self) -> String {
         self.to_string()
     }

@@ -257,7 +257,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             ast::Expr::Set(a) => self.gen_assign(Sp::new(a, span), true),
             ast::Expr::Return(r) => self.gen_return(Sp::new(r, span)),
             ast::Expr::Op(o) => self.gen_op_expr(Sp::new(o, span)),
-            ast::Expr::Number(n) => Ok(Some(self.value_builder.double(*n))),
+            ast::Expr::Literal(v) => self.gen_literal(Sp::new(v, span)),
             ast::Expr::Ident(i) => {
                 let var = *self
                     .variables
@@ -292,6 +292,19 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let lhs = self.gen_expr(item.lhs.as_ref())?;
         let rhs = self.gen_expr(item.rhs.as_ref())?;
         self.value_builder.build_op(item.op.item, lhs, rhs, span)
+    }
+
+    fn gen_literal(
+        &mut self,
+        ast: Sp<&ast::Literal>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        match item {
+            ast::Literal::Unit(_) => Ok(Some(MglValue::unit())),
+            ast::Literal::Float(v) => Ok(Some(self.value_builder.double(*v))),
+            ast::Literal::Bool(v) => Ok(Some(self.value_builder.bool(*v))),
+        }
     }
 
     fn gen_func_call(

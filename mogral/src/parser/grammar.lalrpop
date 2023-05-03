@@ -56,7 +56,7 @@ AddExpr = Tier<AddOp, MulExpr>;
 MulExpr = Tier<MulOp, Primary>;
 
 Primary:                                    Box<ast::Expr> = {
-    Number                                      => Box::new(ast::Expr::Number(<>)),
+    Literal                                     => Box::new(ast::Expr::Literal(<>)),
     Ident                                       => Box::new(ast::Expr::Ident(<>)),
     FuncCall                                    => Box::new(ast::Expr::FuncCall(<>)),
     "(" <Expr> ")",
@@ -122,7 +122,18 @@ MulOp:                                      Op = {
 Ident:                                      String = {
     r"[A-Za-z_][A-Za-z_0-9]*"                   => <>.to_string()
 };
-Number: f64 = {
+
+Literal:                                    ast::Literal = {
+    Unit                                        => ast::Literal::Unit(<>),
+    Number                                      => ast::Literal::Float(<>),
+    Bool                                        => ast::Literal::Bool(<>),
+};
+
+Unit:                                       () = {
+    "(" ")"                                     => (),
+}
+
+Number:                                     f64 = {
     Integer,
     Float,
 }
@@ -132,6 +143,12 @@ Integer:                                    f64 = {
 Float:                                      f64 = {
     r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
 }
+
+Bool:                                       bool = {
+    "true"                                      => true,
+    "false"                                     => false,
+}
+
 Type:                                       MglType = {
     "(" ")"                                     => MglType::Unit,
     "double"                                    => MglType::Double,
