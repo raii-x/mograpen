@@ -7,7 +7,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::types::BasicMetadataTypeEnum;
+use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 use crate::ast;
@@ -17,13 +17,14 @@ use crate::types::MglType;
 use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
-use self::value::{MglValue, MglValueBuilder, MglVariable};
+use self::value::{MglFunction, MglValue, MglValueBuilder, MglVariable};
 
 struct CodeGen<'ctx, 'a> {
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
     fpm: Option<PassManager<FunctionValue<'ctx>>>,
+    functions: HashMap<String, MglFunction<'ctx>>,
     variables: HashMap<String, MglVariable<'ctx>>,
     value_builder: MglValueBuilder<'ctx, 'a>,
 }
@@ -59,6 +60,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             module,
             builder,
             fpm,
+            functions: HashMap::new(),
             variables: HashMap::new(),
             value_builder: MglValueBuilder { context, builder },
         }
@@ -77,8 +79,18 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_func_decl(
         &mut self,
         ast: Sp<&ast::FuncDecl>,
-    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
-        let Sp { item, span: _ } = ast;
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let fn_name = &item.name.item;
+
+        // 同じ名前の関数が既にあればエラー
+        if self.functions.contains_key(fn_name) {
+            return Err(Sp::new(
+                CodeGenError::MultipleDefinitions(fn_name.clone()),
+                span,
+            ));
+        }
 
         // 引数型を作成
         let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::with_capacity(item.params.len());
@@ -97,56 +109,82 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             }
         }
 
-        // 戻り値型を作成
-        let ret_type = self.context.f64_type();
+        // 関数型を作成
+        let fn_type = match item.ret {
+            Some(Sp { item: ty, span: _ }) => match self.value_builder.ink_type(ty) {
+                Some(ty) => ty.fn_type(&param_types, false),
+                None => self.context.void_type().fn_type(&param_types, false),
+            },
+            None => self.context.void_type().fn_type(&param_types, false),
+        };
 
         // 関数を作成
-        let fn_type = ret_type.fn_type(&param_types, false);
-        let fn_val = self.module.add_function(&item.name.item, fn_type, None);
+        let fn_val = self.module.add_function(&fn_name, fn_type, None);
 
         // 引数の名前を設定
         for (i, arg) in fn_val.get_param_iter().enumerate() {
             arg.set_name(param_names[i]);
         }
 
-        Ok(fn_val)
+        // MglFunctionを作成
+        let func = MglFunction {
+            params: item.params.iter().map(|x| x.item.type_.item).collect(),
+            ret: match &item.ret {
+                Some(ty) => ty.item,
+                None => MglType::Unit,
+            },
+            value: fn_val,
+        };
+
+        // 関数を関数表に格納
+        self.functions.insert(fn_name.clone(), func.clone());
+
+        Ok(func)
     }
 
     fn gen_func_def(
         &mut self,
         ast: Sp<&ast::FuncDef>,
-    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
+        // 関数を作成
         let decl = &item.decl.item;
-        let function = self.gen_func_decl(item.decl.as_ref())?;
+        let func = self.gen_func_decl(item.decl.as_ref())?;
 
-        let entry = self.context.append_basic_block(function, "entry");
-
+        // 基本ブロックを作成
+        let entry = self.context.append_basic_block(func.value, "entry");
         self.builder.position_at_end(entry);
 
         self.variables.clear();
 
         // 関数の引数を変数表に格納
-        self.variables.reserve(decl.params.len());
-        for (i, arg) in function.get_param_iter().enumerate() {
-            let arg_name = &decl.params[i];
+        self.variables.reserve(func.params.len());
+        let mut param_iter = func.value.get_param_iter();
+        for (i, &type_) in func.params.iter().enumerate() {
+            let arg_name = &decl.params[i].item.ident;
 
-            let arg = MglValue {
-                type_: MglType::Double,
-                value: Some(arg),
+            // 引数の変数を作成
+            let var = self
+                .value_builder
+                .create_variable(func.value, type_, &arg_name.item);
+
+            // 変数表に変数を格納
+            self.variables.insert(arg_name.item.clone(), var);
+
+            // 引数値を取得
+            let arg_value = MglValue {
+                type_,
+                // MglTypeに対応するinkwell型がある場合は、inkwellの引数の値を格納
+                value: self
+                    .value_builder
+                    .ink_type(type_)
+                    .and_then(|_| Some(param_iter.next().unwrap())),
             };
 
-            let var = self.value_builder.create_variable(
-                function,
-                MglType::Double,
-                &arg_name.item.ident.item,
-            );
+            // 引数値を変数に格納
             self.value_builder
-                .build_store(var, Sp::new(arg, arg_name.span))?;
-
-            self.variables
-                .insert(decl.params[i].item.ident.item.clone(), var);
+                .build_store(var, Sp::new(arg_value, arg_name.span))?;
         }
 
         // 関数本体のコード生成
@@ -158,16 +196,16 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
 
         // 関数を検証して最適化を行う
-        if function.verify(true) {
+        if func.value.verify(true) {
             if let Some(fpm) = &self.fpm {
-                fpm.run_on(&function);
+                fpm.run_on(&func.value);
             }
 
-            Ok(function)
+            Ok(func)
         } else {
             self.module.print_to_stderr();
             unsafe {
-                function.delete();
+                func.value.delete();
             }
 
             Err(Sp::new(CodeGenError::InvalidFunction, span))

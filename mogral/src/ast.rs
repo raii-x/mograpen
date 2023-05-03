@@ -66,7 +66,8 @@ ast_node_enum! {
 ast_node_struct! {
     FuncDecl;
     name: Spanned<String>,
-    params: Vec<Spanned<TypedIdent>>
+    params: Vec<Spanned<TypedIdent>>,
+    ret: Option<Spanned<MglType>>
 }
 
 ast_node_struct! {

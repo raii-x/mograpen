@@ -19,4 +19,6 @@ pub enum CodeGenError {
     MismatchedTypes { expected: MglType, found: MglType },
     #[error("invalid operand types ({lhs} {op} {rhs})")]
     InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
+    #[error("multiple definitions of `{0}`")]
+    MultipleDefinitions(String),
 }

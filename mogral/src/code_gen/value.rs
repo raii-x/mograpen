@@ -346,3 +346,10 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
         })
     }
 }
+
+#[derive(Clone)]
+pub struct MglFunction<'ctx> {
+    pub params: Vec<MglType>,
+    pub ret: MglType,
+    pub value: FunctionValue<'ctx>,
+}

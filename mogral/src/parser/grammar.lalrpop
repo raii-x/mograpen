@@ -17,8 +17,13 @@ Func:                                       ast::Func = {
     FuncDef                                     => ast::Func::FuncDef(<>),
 };
 FuncDecl:                                   ast::FuncDecl = {
-    "fn" <n:Sp<Ident>> "(" <p:Params> ")"       => ast::FuncDecl { name: n, params: p },
+    "fn" <n:Sp<Ident>> "(" <p:Params> ")"
+        <r:FuncRetType?>                        => ast::FuncDecl { name: n, params: p, ret: r },
 };
+FuncRetType:                                Spanned<MglType> = {
+    ":" <Sp<Type>>
+};
+
 Params = Comma<Sp<TypedIdent>>;
 FuncDef:                                    ast::FuncDef = {
     <d:Sp<FuncDecl>> <b:Sp<Block>>              => ast::FuncDef { decl: d, body: b },
