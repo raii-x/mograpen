@@ -152,10 +152,10 @@ fn main(x: double): double {
 fn eq_neq_bool() {
     let source = r#"
 fn main(x: double): double {
-	if (0 == 0) == (0 == 0) {} else { return 1; }
-	if (0 == 0) == (0 == 1) { return 1; }
-	if (0 == 0) != (0 == 0) { return 1; }
-	if (0 == 0) != (0 == 1) {} else { return 1; }
+	if true == true {} else { return 1; }
+	if true == false { return 1; }
+	if true != true { return 1; }
+	if true != false {} else { return 1; }
 	0
 }
 "#;
@@ -166,8 +166,8 @@ fn main(x: double): double {
 fn eq_neq_unit() {
     let source = r#"
 fn main(x: double): double {
-	if {} == {} {} else { return 1; }
-	if {} != {} { return 1; }
+	if () == () {} else { return 1; }
+	if () != () { return 1; }
 	0
 }
 "#;

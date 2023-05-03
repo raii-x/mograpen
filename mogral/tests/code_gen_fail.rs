@@ -22,14 +22,14 @@ fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError)
 fn assign_mismatched_types_double_unit() {
     let source = r#"
 fn main() {
-    x = if 1 == 1 { 0 };
+    x = if true { 0 };
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (3, 9),
-            (3, 24),
+            (3, 22),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -42,14 +42,14 @@ fn main() {
 fn assign_mismatched_types_double_bool() {
     let source = r#"
 fn main() {
-    x = 0 == 0;
+    x = true;
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (3, 9),
-            (3, 15),
+            (3, 13),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
@@ -82,14 +82,14 @@ fn main() {
 fn if_else_mismatched_types() {
     let source = r#"
 fn main() {
-    x = if 0 == 0 { 1 } else {};
+    x = if true { 1 } else {};
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
+            (3, 28),
             (3, 30),
-            (3, 32),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -103,14 +103,14 @@ fn func_call_mismatched_types() {
     let source = r#"
 fn f(x: double): double { x }
 fn main() {
-    f(0 == 0);
+    f(true);
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (4, 7),
-            (4, 13),
+            (4, 11),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
@@ -137,7 +137,7 @@ fn invalid_operand_types_double_unit() {
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} {{}};
+    x = 0 {} ();
 }}
 "#,
             op_str
@@ -175,7 +175,7 @@ fn invalid_operand_types_double_bool() {
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} (0 == 0);
+    x = 0 {} true;
 }}
 "#,
             op_str
@@ -184,7 +184,7 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 20 + op_str.len()),
+                (3, 16 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -211,7 +211,7 @@ fn invalid_operand_types_ord_arith_bool() {
         let source = format!(
             r#"
 fn main() {{
-    x = (0 == 0) {} (0 == 0);
+    x = true {} true;
 }}
 "#,
             op_str
@@ -220,7 +220,7 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 27 + op_str.len()),
+                (3, 19 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Bool,
