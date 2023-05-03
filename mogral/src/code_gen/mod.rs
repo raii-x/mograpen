@@ -131,7 +131,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // MglFunctionを作成
         let func = MglFunction {
             params: item.params.iter().map(|x| x.item.type_.item).collect(),
-            ret: match &item.ret {
+            ret_type: match &item.ret {
                 Some(ty) => ty.item,
                 None => MglType::Unit,
             },
@@ -210,7 +210,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         if let Some(body) = body {
             // return文が無いパスがある場合はここでreturnを作成
             self.value_builder.build_return(
-                self.current_fn.as_ref().unwrap().ret,
+                self.current_fn.as_ref().unwrap().ret_type,
                 Sp::new(body, item.body.span),
             )?;
         }
@@ -337,8 +337,10 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let span = ast.span;
         let val = self.gen_expr(ast)?;
         if let Some(val) = val {
-            self.value_builder
-                .build_return(self.current_fn.as_ref().unwrap().ret, Sp::new(val, span))?;
+            self.value_builder.build_return(
+                self.current_fn.as_ref().unwrap().ret_type,
+                Sp::new(val, span),
+            )?;
         }
         Ok(None)
     }

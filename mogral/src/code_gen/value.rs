@@ -212,8 +212,8 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
 
         // 関数の戻り値を返す
         Ok(Some(MglValue {
-            type_: function.ret,
-            value: match self.ink_type(function.ret) {
+            type_: function.ret_type,
+            value: match self.ink_type(function.ret_type) {
                 Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
                 None => None,
             },
@@ -364,6 +364,6 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
 #[derive(Clone)]
 pub struct MglFunction<'ctx> {
     pub params: Vec<MglType>,
-    pub ret: MglType,
+    pub ret_type: MglType,
     pub value: FunctionValue<'ctx>,
 }
