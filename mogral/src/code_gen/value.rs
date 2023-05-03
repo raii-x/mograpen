@@ -157,11 +157,27 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     }
 
     /// MglValueを返すreturn命令を作成する
-    pub fn build_return(&self, value: MglValue<'ctx>) -> InstructionValue<'ctx> {
-        match value.value {
+    pub fn build_return(
+        &self,
+        ret_type: MglType,
+        value: Spanned<MglValue<'ctx>>,
+    ) -> Result<InstructionValue<'ctx>, Spanned<CodeGenError>> {
+        // 戻り値の型チェック
+        if value.item.type_ != ret_type {
+            return Err(Spanned::new(
+                CodeGenError::MismatchedTypes {
+                    expected: ret_type,
+                    found: value.item.type_,
+                },
+                value.span,
+            ));
+        }
+
+        // return命令を作成
+        Ok(match value.item.value {
             Some(value) => self.builder.build_return(Some(&value)),
             None => self.builder.build_return(None),
-        }
+        })
     }
 
     /// 関数呼び出し命令を作成する

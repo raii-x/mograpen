@@ -27,6 +27,7 @@ struct CodeGen<'ctx, 'a> {
     functions: HashMap<String, MglFunction<'ctx>>,
     variables: HashMap<String, MglVariable<'ctx>>,
     value_builder: MglValueBuilder<'ctx, 'a>,
+    current_fn: Option<MglFunction<'ctx>>,
 }
 
 impl<'ctx, 'a> CodeGen<'ctx, 'a> {
@@ -63,6 +64,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             functions: HashMap::new(),
             variables: HashMap::new(),
             value_builder: MglValueBuilder { context, builder },
+            current_fn: None,
         }
     }
 
@@ -146,11 +148,26 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         &mut self,
         ast: Sp<&ast::FuncDef>,
     ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
-        let Sp { item, span } = ast;
+        let Sp { item, span: _ } = ast;
 
         // 関数を作成
-        let decl = &item.decl.item;
         let func = self.gen_func_decl(item.decl.as_ref())?;
+
+        self.current_fn = Some(func.clone());
+
+        let ret = self.gen_func_def_inner(ast, func);
+
+        self.current_fn = None;
+
+        ret
+    }
+
+    fn gen_func_def_inner(
+        &mut self,
+        ast: Sp<&ast::FuncDef>,
+        func: MglFunction<'ctx>,
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
 
         // 基本ブロックを作成
         let entry = self.context.append_basic_block(func.value, "entry");
@@ -162,7 +179,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.variables.reserve(func.params.len());
         let mut param_iter = func.value.get_param_iter();
         for (i, &type_) in func.params.iter().enumerate() {
-            let arg_name = &decl.params[i].item.ident;
+            let arg_name = &item.decl.item.params[i].item.ident;
 
             // 引数の変数を作成
             let var = self
@@ -192,7 +209,10 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         if let Some(body) = body {
             // return文が無いパスがある場合はここでreturnを作成
-            self.value_builder.build_return(body);
+            self.value_builder.build_return(
+                self.current_fn.as_ref().unwrap().ret,
+                Sp::new(body, item.body.span),
+            )?;
         }
 
         // 関数を検証して最適化を行う
@@ -269,7 +289,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 ));
             }
             let alloca = self.value_builder.create_variable(
-                self.get_func(),
+                self.current_fn.as_ref().unwrap().value,
                 MglType::Double,
                 &item.var_name.item,
             );
@@ -314,9 +334,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         &mut self,
         ast: Sp<&Box<ast::Expr>>,
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let span = ast.span;
         let val = self.gen_expr(ast)?;
         if let Some(val) = val {
-            self.value_builder.build_return(val);
+            self.value_builder
+                .build_return(self.current_fn.as_ref().unwrap().ret, Sp::new(val, span))?;
         }
         Ok(None)
     }
@@ -423,7 +445,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
 
         // 分岐用の基本ブロックを作成
         let then_bb = self.context.append_basic_block(parent, "then");
@@ -459,7 +481,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
 
         // if式を評価した値を格納する変数
         let mut if_var = None;
@@ -550,7 +572,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_for(&mut self, ast: Sp<&ast::For>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
         let var_name = &item.var_name.item;
 
         // インデックス変数を作成
@@ -635,15 +657,6 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
 
         Ok(Some(MglValue::unit()))
-    }
-
-    /// builderが現在処理中の関数を得る
-    fn get_func(&self) -> FunctionValue<'ctx> {
-        self.builder
-            .get_insert_block()
-            .unwrap()
-            .get_parent()
-            .unwrap()
     }
 }
 
