@@ -159,7 +159,7 @@ impl ASTNode for f64 {
 
 impl ASTNode for Op {
     fn node_to_string(&self) -> String {
-        "\"".to_owned() + self.as_str() + "\""
+        "\"".to_owned() + self.into() + "\""
     }
     fn children(&self) -> Vec<(String, &dyn ASTNode)> {
         vec![]
