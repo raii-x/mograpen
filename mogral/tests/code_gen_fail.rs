@@ -101,7 +101,7 @@ fn main() {
 #[test]
 fn func_call_mismatched_types() {
     let source = r#"
-fn f(x) { x }
+fn f(x: double): double { x }
 fn main() {
     f(0 == 0);
 }
@@ -300,7 +300,7 @@ fn main() {
 #[test]
 fn invalid_number_of_arguments() {
     let source = r#"
-fn f(x) { x }
+fn f(x: double): double { x }
 fn main() {
     f(0, 1);
 }

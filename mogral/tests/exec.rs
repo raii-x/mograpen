@@ -11,7 +11,7 @@ fn source_exec(code: &str, arg: f64) -> f64 {
 #[test]
 fn call() {
     let source = r#"
-fn main() {
+fn main(): double {
 	return 123;
 }"#;
     assert_eq!(source_exec(source, 0.0), 123.0);
@@ -20,7 +20,7 @@ fn main() {
 #[test]
 fn if_() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if x < 3 {
 		return 5;
 	} else {
@@ -35,7 +35,7 @@ fn main(x) {
 #[test]
 fn variable() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	v = 5;
 	for i, 3 {
 		set v = v + 1;
@@ -48,7 +48,7 @@ fn main(x) {
 #[test]
 fn early_return() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if x == 0 {
 		return 1;
 	}
@@ -61,7 +61,7 @@ fn main(x) {
 #[test]
 fn block_expression() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	a = 3;
 	b = 1;
 	set a = { set b = b + 10; a + b };
@@ -73,7 +73,7 @@ fn main(x) {
 #[test]
 fn if_expression() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	return if x == 0 {
 		1
 	} else {
@@ -87,7 +87,7 @@ fn main(x) {
 #[test]
 fn for_variable() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	for i, 5 {
         set i = 10;
         set x = x + 1;
@@ -100,7 +100,7 @@ fn main(x) {
 #[test]
 fn for_shadowing() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	for x, 5 {}
     x
 }"#;
@@ -110,8 +110,8 @@ fn main(x) {
 #[test]
 fn same_name_variables_between_functions() {
     let source = r#"
-fn sub() {a = 5; a}
-fn main(x) {a = 7; a}
+fn sub(): double {a = 5; a}
+fn main(x: double): double {a = 7; a}
 "#;
     assert_eq!(source_exec(source, 0.0), 7.0);
 }
@@ -126,7 +126,7 @@ fn arith() {
     ] {
         let source = format!(
             r#"
-fn main(x) {{ 6 {} 2 }}
+fn main(x: double): double {{ 6 {} 2 }}
 "#,
             op
         );
@@ -137,7 +137,7 @@ fn main(x) {{ 6 {} 2 }}
 #[test]
 fn eq_neq_double() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if 3 == 3 {} else { return 1; }
 	if 3 == 4 { return 1; }
 	if 3 != 3 { return 1; }
@@ -151,7 +151,7 @@ fn main(x) {
 #[test]
 fn eq_neq_bool() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if (0 == 0) == (0 == 0) {} else { return 1; }
 	if (0 == 0) == (0 == 1) { return 1; }
 	if (0 == 0) != (0 == 0) { return 1; }
@@ -165,7 +165,7 @@ fn main(x) {
 #[test]
 fn eq_neq_unit() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if {} == {} {} else { return 1; }
 	if {} != {} { return 1; }
 	0
@@ -177,7 +177,7 @@ fn main(x) {
 #[test]
 fn ord_double() {
     let source = r#"
-fn main(x) {
+fn main(x: double): double {
 	if 3 < 3 { return 1; }
 	if 3 > 3 { return 1; }
 	if 3 <= 3 {} else { return 1; }
