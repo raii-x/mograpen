@@ -133,19 +133,20 @@ fn invalid_operand_types_double_unit() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
     x = 0 {} {{}};
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 14 + op.as_str().len()),
+                (3, 14 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -170,19 +171,20 @@ fn invalid_operand_types_double_bool() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
     x = 0 {} (0 == 0);
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 20 + op.as_str().len()),
+                (3, 20 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -205,19 +207,20 @@ fn invalid_operand_types_ord_arith_bool() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
     x = (0 == 0) {} (0 == 0);
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 27 + op.as_str().len()),
+                (3, 27 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Bool,
