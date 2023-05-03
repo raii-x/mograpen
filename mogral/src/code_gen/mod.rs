@@ -67,8 +67,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_module(&mut self, ast: &ast::Module) -> Result<(), Sp<CodeGenError>> {
         for func in &ast.funcs {
             match &func.item {
-                ast::Func::Extern(e) => self.gen_func_decl(Sp::new(e, func.span)),
-                ast::Func::FuncDef(f) => self.gen_func_def(Sp::new(f, func.span)),
+                ast::Func::Extern(x) => self.gen_func_decl(Sp::new(x, func.span)),
+                ast::Func::FuncDef(x) => self.gen_func_def(Sp::new(x, func.span)),
             }?;
         }
         Ok(())
@@ -191,7 +191,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 式があれば生成して評価結果を返し、式が無ければunitを返す
         match &item.expr {
-            Some(e) => self.gen_expr(e.as_ref()),
+            Some(x) => self.gen_expr(x.as_ref()),
             None => Ok(Some(MglValue::unit())),
         }
     }
@@ -200,8 +200,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span: _ } = ast;
 
         let res = match item {
-            ast::Stmt::Assign(a) => self.gen_assign(a.as_ref(), false),
-            ast::Stmt::Expr(e) => self.gen_expr(e.as_ref()),
+            ast::Stmt::Assign(x) => self.gen_assign(x.as_ref(), false),
+            ast::Stmt::Expr(x) => self.gen_expr(x.as_ref()),
         }?;
         // 式の評価結果を捨てる
         Ok(res.and(Some(())))
@@ -254,21 +254,21 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span } = ast;
 
         match item.as_ref() {
-            ast::Expr::Set(a) => self.gen_assign(Sp::new(a, span), true),
-            ast::Expr::Return(r) => self.gen_return(Sp::new(r, span)),
-            ast::Expr::Op(o) => self.gen_op_expr(Sp::new(o, span)),
-            ast::Expr::Literal(v) => self.gen_literal(Sp::new(v, span)),
-            ast::Expr::Ident(i) => {
+            ast::Expr::Set(x) => self.gen_assign(Sp::new(x, span), true),
+            ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
+            ast::Expr::Op(x) => self.gen_op_expr(Sp::new(x, span)),
+            ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
+            ast::Expr::Ident(s) => {
                 let var = *self
                     .variables
-                    .get(i)
-                    .ok_or(Sp::new(CodeGenError::UnresolvedName(i.to_owned()), span))?;
+                    .get(s)
+                    .ok_or(Sp::new(CodeGenError::UnresolvedName(s.to_owned()), span))?;
                 Ok(Some(self.value_builder.build_load(var)))
             }
-            ast::Expr::FuncCall(fc) => self.gen_func_call(Sp::new(fc, span)),
-            ast::Expr::Block(b) => self.gen_block(Sp::new(b, span)),
-            ast::Expr::If(i) => self.gen_if(Sp::new(i, span)),
-            ast::Expr::For(f) => self.gen_for(Sp::new(f, span)),
+            ast::Expr::FuncCall(x) => self.gen_func_call(Sp::new(x, span)),
+            ast::Expr::Block(x) => self.gen_block(Sp::new(x, span)),
+            ast::Expr::If(x) => self.gen_if(Sp::new(x, span)),
+            ast::Expr::For(x) => self.gen_for(Sp::new(x, span)),
         }
     }
 
