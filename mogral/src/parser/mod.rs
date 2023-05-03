@@ -18,7 +18,7 @@ mod tests {
     fn grammar() {
         let code = r#"
 extern fn ext();
-fn main(a, b) {
+fn main(a: double, b: double): double {
     set a = 5;
     x = if b == 4 * 3 + (1 - 2) { 3 } else { ext() };
 	for i, 10 {
@@ -28,7 +28,14 @@ fn main(a, b) {
         }
     }
     0.3
-}"#;
+}
+fn sub(a: (), b: bool): bool {
+    if b == true {
+        c = ();
+    }
+    false
+}
+"#;
         assert!(match parse(code) {
             Ok(_) => true,
             Err(_) => false,
