@@ -13,10 +13,10 @@ pub enum CodeGenError {
     UnresolvedName(String),
     #[error("variable already exists: `{0}`")]
     VariableAlreadyExists(String),
-    #[error("invalid number of arguments passed (expected {expected:?}, found {found:?})")]
+    #[error("invalid number of arguments passed (expected {expected}, found {found})")]
     InvalidNumberOfArguments { expected: u32, found: u32 },
-    #[error("mismatched types (expected {expected:?}, found {found:?})")]
+    #[error("mismatched types (expected {expected}, found {found})")]
     MismatchedTypes { expected: MglType, found: MglType },
-    #[error("invalid operand types ({lhs:?} {op} {rhs:?})")]
+    #[error("invalid operand types ({lhs} {op} {rhs})")]
     InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
 }
