@@ -258,51 +258,67 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span: _ } = ast;
 
         let res = match item {
-            ast::Stmt::Assign(x) => self.gen_assign(x.as_ref(), false),
+            ast::Stmt::Let(x) => self.gen_let(x.as_ref()),
             ast::Stmt::Expr(x) => self.gen_expr(x.as_ref()),
         }?;
         // 式の評価結果を捨てる
         Ok(res.and(Some(())))
     }
 
-    /// 変数宣言か再代入のコード生成
-    /// (引数のsetがtrueの場合は再代入)
-    fn gen_assign(
-        &mut self,
-        ast: Sp<&ast::Assign>,
-        set: bool,
-    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+    fn gen_let(&mut self, ast: Sp<&ast::Let>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
+        let var_name = &item.var.item.ident;
 
-        let var = if set {
-            // 再代入の場合、変数が存在しない場合にエラー
-            *self.variables.get(&item.var_name.item).ok_or(Sp::new(
-                CodeGenError::UnresolvedName(item.var_name.item.to_owned()),
-                item.var_name.span,
-            ))?
-        } else {
-            // 新規変数宣言の場合、既に変数が存在する場合にエラー
-            if self.variables.contains_key(&item.var_name.item) {
-                return Err(Sp::new(
-                    CodeGenError::VariableAlreadyExists(item.var_name.item.to_owned()),
-                    item.var_name.span,
-                ));
-            }
-            let alloca = self.value_builder.create_variable(
-                self.current_fn.as_ref().unwrap().value,
-                MglType::Double,
-                &item.var_name.item,
-            );
-            self.variables.insert(item.var_name.item.to_owned(), alloca);
-            alloca
+        // 既に変数が存在する場合にエラー
+        if self.variables.contains_key(&var_name.item) {
+            return Err(Sp::new(
+                CodeGenError::VariableAlreadyExists(var_name.item.clone()),
+                var_name.span,
+            ));
+        }
+
+        // 初期値のコード生成
+        let val = self.gen_expr(item.val.as_ref())?;
+
+        // returnするならそれ以降のコード生成を行わない
+        let val = match val {
+            Some(x) => x,
+            None => return Ok(None),
         };
 
-        let val = self.gen_expr(item.val.as_ref())?;
-        if let Some(val) = val {
-            self.value_builder
-                .build_store(var, Sp::new(val, item.val.span))?;
-        }
-        Ok(val)
+        // 型注釈または初期値から型を取得
+        let ty = match &item.var.item.type_ {
+            Some(ty) => {
+                // 型注釈が初期値の型と合っていない場合にエラー
+                if ty.item != val.type_ {
+                    return Err(Sp::new(
+                        CodeGenError::MismatchedTypes {
+                            expected: ty.item,
+                            found: val.type_,
+                        },
+                        item.val.span,
+                    ));
+                }
+                ty.item
+            }
+            None => {
+                // 初期値の型を使用
+                val.type_
+            }
+        };
+
+        // 変数を作成
+        let var = self.value_builder.create_variable(
+            self.current_fn.as_ref().unwrap().value,
+            ty,
+            &var_name.item,
+        );
+        self.variables.insert(var_name.item.clone(), var);
+
+        // 初期値を代入
+        self.value_builder
+            .build_store(var, Sp::new(val, item.val.span))?;
+        Ok(Some(val))
     }
 
     fn gen_expr(
@@ -312,7 +328,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span } = ast;
 
         match item.as_ref() {
-            ast::Expr::Set(x) => self.gen_assign(Sp::new(x, span), true),
+            ast::Expr::Set(x) => self.gen_set(Sp::new(x, span)),
             ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
             ast::Expr::Op(x) => self.gen_op_expr(Sp::new(x, span)),
             ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
@@ -328,6 +344,25 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             ast::Expr::If(x) => self.gen_if(Sp::new(x, span)),
             ast::Expr::For(x) => self.gen_for(Sp::new(x, span)),
         }
+    }
+
+    fn gen_set(&mut self, ast: Sp<&ast::Set>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        // 変数を取得
+        let var = *self.variables.get(&item.var_name.item).ok_or(Sp::new(
+            // 変数が存在しない場合にエラー
+            CodeGenError::UnresolvedName(item.var_name.item.to_owned()),
+            item.var_name.span,
+        ))?;
+
+        // 値を代入
+        let val = self.gen_expr(item.val.as_ref())?;
+        if let Some(val) = val {
+            self.value_builder
+                .build_store(var, Sp::new(val, item.val.span))?;
+        }
+        Ok(val)
     }
 
     fn gen_return(

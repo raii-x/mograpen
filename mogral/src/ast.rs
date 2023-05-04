@@ -78,19 +78,19 @@ ast_node_struct! {
 
 ast_node_enum! {
     Stmt;
-    Assign(Spanned<Assign>),
+    Let(Spanned<Let>),
     Expr(Spanned<Box<Expr>>)
 }
 
 ast_node_struct! {
-    Assign;
-    var_name: Spanned<String>,
+    Let;
+    var: Spanned<OptTypedIdent>,
     val: Spanned<Box<Expr>>
 }
 
 ast_node_enum! {
     Expr;
-    Set(Assign),
+    Set(Set),
     Return(Box<Expr>),
     Op(OpExpr),
     Literal(Literal),
@@ -99,6 +99,12 @@ ast_node_enum! {
     Block(Block),
     If(If),
     For(For)
+}
+
+ast_node_struct! {
+    Set;
+    var_name: Spanned<String>,
+    val: Spanned<Box<Expr>>
 }
 
 ast_node_struct! {
@@ -146,6 +152,12 @@ ast_node_struct! {
     TypedIdent;
     ident: Spanned<String>,
     type_: Spanned<MglType>
+}
+
+ast_node_struct! {
+    OptTypedIdent;
+    ident: Spanned<String>,
+    type_: Option<Spanned<MglType>>
 }
 
 impl ASTNode for String {
