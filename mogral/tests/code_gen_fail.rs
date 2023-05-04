@@ -59,6 +59,26 @@ fn main() {
 }
 
 #[test]
+fn set_mismatched_types() {
+    let source = r#"
+fn main(x: bool) {
+    set x = 0;
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 13),
+            (3, 14),
+            MismatchedTypes {
+                expected: MglType::Bool,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
 fn if_cond_mismatched_types() {
     let source = r#"
 fn main() {
