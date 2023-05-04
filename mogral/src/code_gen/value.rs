@@ -125,6 +125,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
         variable: MglVariable<'ctx>,
         value: Spanned<MglValue<'ctx>>,
     ) -> Result<Option<InstructionValue<'ctx>>, Spanned<CodeGenError>> {
+        // 変数と代入する値の型チェック
         if variable.type_ != value.item.type_ {
             return Err(Spanned::new(
                 CodeGenError::MismatchedTypes {

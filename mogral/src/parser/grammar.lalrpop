@@ -32,13 +32,13 @@ FuncDef:                                    ast::FuncDef = {
 // Statements
 
 Stmt:                                       ast::Stmt = {
-    <Sp<Assign>> ";"                            => ast::Stmt::Assign(<>),
+    <Sp<Let>> ";"                               => ast::Stmt::Let(<>),
     <Sp<Expr>> ";"                              => ast::Stmt::Expr(<>),
 };
 
-Assign:                                     ast::Assign = {
-    <i:Sp<Ident>> "=" <e:Sp<Expr>>              => ast::Assign { var_name: i, val: e },
-};
+Let:                                        ast::Let = {
+    <v:Sp<OptTypedIdent>> "=" <e:Sp<Expr>>      => ast::Let { var: v, val: e },
+}
 
 // Expressions
 
@@ -48,8 +48,8 @@ Expr:                                       Box<ast::Expr> = {
     OpExpr,
 };
 
-Set:                                        ast::Assign = {
-    "set" <Assign>,
+Set:                                        ast::Set = {
+    "set" <i:Sp<Ident>> "=" <e:Sp<Expr>>        => ast::Set { var_name: i, val: e },
 };
 
 Return:                                     Box<ast::Expr> = {
@@ -104,7 +104,15 @@ For:                                        ast::For = {
 };
 
 TypedIdent:                                 ast::TypedIdent = {
-    <i:Sp<Ident>> ":" <t:Sp<Type>>              => ast::TypedIdent { ident: i, type_: t },
+    <i:Sp<Ident>> <t:TypeAnnotation>            => ast::TypedIdent { ident: i, type_: t },
+}
+
+OptTypedIdent:                              ast::OptTypedIdent = {
+    <i:Sp<Ident>> <t:TypeAnnotation?>           => ast::OptTypedIdent { ident: i, type_: t },
+}
+
+TypeAnnotation:                             Spanned<MglType> = {
+    ":" <Sp<Type>>
 }
 
 CompOp:                                     Op = {
