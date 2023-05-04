@@ -120,6 +120,42 @@ fn main() {
 }
 
 #[test]
+fn function_expression_mismatched_types() {
+    let source = r#"
+fn main() { 0 }
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (2, 11),
+            (2, 16),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
+fn return_mismatched_types() {
+    let source = r#"
+fn main() { return 0; }
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (2, 13),
+            (2, 21),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
 fn invalid_operand_types_double_unit() {
     for op in [
         Op::Lt,
