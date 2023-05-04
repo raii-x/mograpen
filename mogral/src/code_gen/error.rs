@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::op::Op;
+use crate::op::{Op, UnaryOp};
 use crate::types::MglType;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -20,7 +20,7 @@ pub enum CodeGenError {
     #[error("invalid operand types ({lhs} {op} {rhs})")]
     InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
     #[error("invalid unary operand type ({op} {type_})")]
-    InvalidUnaryOperandType { op: Op, type_: MglType },
+    InvalidUnaryOperandType { op: UnaryOp, type_: MglType },
     #[error("multiple definitions of `{0}`")]
     MultipleDefinitions(String),
 }
