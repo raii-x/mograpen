@@ -241,6 +241,50 @@ fn main(x: double): double {
 }
 
 #[test]
+fn neg() {
+    let source = r#"
+fn main(x: double): double {
+    -x
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+    assert_eq!(source_exec(&source, 5.0), -5.0);
+}
+
+#[test]
+fn multiple_neg() {
+    let source = r#"
+fn main(x: double): double {
+    ----x
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+    assert_eq!(source_exec(&source, 5.0), 5.0);
+}
+
+#[test]
+fn not() {
+    let source = r#"
+fn main(x: double): double {
+    if !(x == 3) { 1 } else { 0 }
+}
+"#;
+    assert_eq!(source_exec(&source, 2.0), 1.0);
+    assert_eq!(source_exec(&source, 3.0), 0.0);
+}
+
+#[test]
+fn multiple_not() {
+    let source = r#"
+fn main(x: double): double {
+    if !!!!(x == 3) { 1 } else { 0 }
+}
+"#;
+    assert_eq!(source_exec(&source, 2.0), 0.0);
+    assert_eq!(source_exec(&source, 3.0), 1.0);
+}
+
+#[test]
 fn arg_return_unit() {
     let source = r#"
 fn sub(x: ()) {

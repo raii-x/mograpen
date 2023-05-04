@@ -309,6 +309,56 @@ fn main() {{
 }
 
 #[test]
+fn invalid_unary_operand_type_neg() {
+    for (operand, type_) in [("true", MglType::Bool), ("()", MglType::Unit)] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = -{};
+}}
+"#,
+            operand
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10 + operand.len()),
+                InvalidUnaryOperandType {
+                    op: UnaryOp::Neg,
+                    type_
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_unary_operand_type_not() {
+    for (operand, type_) in [("0", MglType::Double), ("()", MglType::Unit)] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = !{};
+}}
+"#,
+            operand
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10 + operand.len()),
+                InvalidUnaryOperandType {
+                    op: UnaryOp::Not,
+                    type_
+                }
+            )
+        );
+    }
+}
+
+#[test]
 fn unresolved_name_variable_ref() {
     let source = r#"
 fn main(): double {
