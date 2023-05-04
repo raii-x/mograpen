@@ -1,4 +1,4 @@
-use crate::{op::Op, pos::Spanned};
+use crate::{op::Op, pos::Spanned, MglType};
 
 /// ASTのノードをツリーとして表示するためのトレイト
 pub trait ASTNode {
@@ -66,7 +66,8 @@ ast_node_enum! {
 ast_node_struct! {
     FuncDecl;
     name: Spanned<String>,
-    params: Vec<Spanned<String>>
+    params: Vec<Spanned<TypedIdent>>,
+    ret: Option<Spanned<MglType>>
 }
 
 ast_node_struct! {
@@ -92,7 +93,7 @@ ast_node_enum! {
     Set(Assign),
     Return(Box<Expr>),
     Op(OpExpr),
-    Number(f64),
+    Literal(Literal),
     Ident(String),
     FuncCall(FuncCall),
     Block(Block),
@@ -105,6 +106,14 @@ ast_node_struct! {
     lhs: Spanned<Box<Expr>>,
     op: Spanned<Op>,
     rhs: Spanned<Box<Expr>>
+}
+
+ast_node_enum! {
+    Literal;
+    // unit型は0要素のタプルとすべきだが、暫定的に()をリテラルとしている
+    Unit(()),
+    Float(f64),
+    Bool(bool)
 }
 
 ast_node_struct! {
@@ -133,9 +142,24 @@ ast_node_struct! {
     body: Spanned<Block>
 }
 
+ast_node_struct! {
+    TypedIdent;
+    ident: Spanned<String>,
+    type_: Spanned<MglType>
+}
+
 impl ASTNode for String {
     fn node_to_string(&self) -> String {
         "\"".to_owned() + self + "\""
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
+impl ASTNode for () {
+    fn node_to_string(&self) -> String {
+        "()".to_owned()
     }
     fn children(&self) -> Vec<(String, &dyn ASTNode)> {
         vec![]
@@ -151,9 +175,27 @@ impl ASTNode for f64 {
     }
 }
 
+impl ASTNode for bool {
+    fn node_to_string(&self) -> String {
+        self.to_string()
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
 impl ASTNode for Op {
     fn node_to_string(&self) -> String {
-        "\"".to_owned() + self.as_str() + "\""
+        "\"".to_owned() + self.into() + "\""
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
+impl ASTNode for MglType {
+    fn node_to_string(&self) -> String {
+        "\"".to_owned() + self.into() + "\""
     }
     fn children(&self) -> Vec<(String, &dyn ASTNode)> {
         vec![]

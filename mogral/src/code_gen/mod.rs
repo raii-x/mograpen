@@ -1,5 +1,4 @@
 pub mod error;
-pub mod types;
 mod value;
 
 use std::collections::HashMap;
@@ -8,25 +7,27 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::types::BasicMetadataTypeEnum;
+use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 use crate::ast;
 use crate::op::Op;
 use crate::pos::Spanned as Sp;
+use crate::types::MglType;
 use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
-use self::types::MglType;
-use self::value::{MglValue, MglValueBuilder, MglVariable};
+use self::value::{MglFunction, MglValue, MglValueBuilder, MglVariable};
 
 struct CodeGen<'ctx, 'a> {
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
     fpm: Option<PassManager<FunctionValue<'ctx>>>,
+    functions: HashMap<String, MglFunction<'ctx>>,
     variables: HashMap<String, MglVariable<'ctx>>,
     value_builder: MglValueBuilder<'ctx, 'a>,
+    current_fn: Option<MglFunction<'ctx>>,
 }
 
 impl<'ctx, 'a> CodeGen<'ctx, 'a> {
@@ -60,16 +61,18 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             module,
             builder,
             fpm,
+            functions: HashMap::new(),
             variables: HashMap::new(),
             value_builder: MglValueBuilder { context, builder },
+            current_fn: None,
         }
     }
 
     fn gen_module(&mut self, ast: &ast::Module) -> Result<(), Sp<CodeGenError>> {
         for func in &ast.funcs {
             match &func.item {
-                ast::Func::Extern(e) => self.gen_func_decl(Sp::new(e, func.span)),
-                ast::Func::FuncDef(f) => self.gen_func_def(Sp::new(f, func.span)),
+                ast::Func::Extern(x) => self.gen_func_decl(Sp::new(x, func.span)),
+                ast::Func::FuncDef(x) => self.gen_func_def(Sp::new(x, func.span)),
             }?;
         }
         Ok(())
@@ -78,55 +81,127 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_func_decl(
         &mut self,
         ast: Sp<&ast::FuncDecl>,
-    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
-        let Sp { item, span: _ } = ast;
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let fn_name = &item.name.item;
+
+        // 同じ名前の関数が既にあればエラー
+        if self.functions.contains_key(fn_name) {
+            return Err(Sp::new(
+                CodeGenError::MultipleDefinitions(fn_name.clone()),
+                span,
+            ));
+        }
+
+        // 引数型を作成
+        let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::with_capacity(item.params.len());
+        let mut param_names: Vec<&str> = Vec::with_capacity(item.params.len());
+
+        for param in &item.params {
+            let Sp {
+                item: p_item,
+                span: _,
+            } = param;
+
+            // MglTypeに対応するinkwellの型がある引数のみを追加
+            if let Some(ty) = self.value_builder.ink_type(p_item.type_.item) {
+                param_types.push(ty.into());
+                param_names.push(&p_item.ident.item);
+            }
+        }
+
+        // 関数型を作成
+        let fn_type = match item.ret {
+            Some(Sp { item: ty, span: _ }) => match self.value_builder.ink_type(ty) {
+                Some(ty) => ty.fn_type(&param_types, false),
+                None => self.context.void_type().fn_type(&param_types, false),
+            },
+            None => self.context.void_type().fn_type(&param_types, false),
+        };
 
         // 関数を作成
-        let f64_type = self.context.f64_type();
-        let param_types: Vec<BasicMetadataTypeEnum> = vec![f64_type.into(); item.params.len()];
-        let fn_type = f64_type.fn_type(&param_types, false);
-        let fn_val = self.module.add_function(&item.name.item, fn_type, None);
+        let fn_val = self.module.add_function(&fn_name, fn_type, None);
 
         // 引数の名前を設定
         for (i, arg) in fn_val.get_param_iter().enumerate() {
-            arg.into_float_value().set_name(&item.params[i].item);
+            arg.set_name(param_names[i]);
         }
 
-        Ok(fn_val)
+        // MglFunctionを作成
+        let func = MglFunction {
+            params: item.params.iter().map(|x| x.item.type_.item).collect(),
+            ret_type: match &item.ret {
+                Some(ty) => ty.item,
+                None => MglType::Unit,
+            },
+            value: fn_val,
+        };
+
+        // 関数を関数表に格納
+        self.functions.insert(fn_name.clone(), func.clone());
+
+        Ok(func)
     }
 
     fn gen_func_def(
         &mut self,
         ast: Sp<&ast::FuncDef>,
-    ) -> Result<FunctionValue<'ctx>, Sp<CodeGenError>> {
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        // 関数を作成
+        let func = self.gen_func_decl(item.decl.as_ref())?;
+
+        self.current_fn = Some(func.clone());
+
+        let ret = self.gen_func_def_inner(ast, func);
+
+        self.current_fn = None;
+
+        ret
+    }
+
+    fn gen_func_def_inner(
+        &mut self,
+        ast: Sp<&ast::FuncDef>,
+        func: MglFunction<'ctx>,
+    ) -> Result<MglFunction<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
-        let decl = &item.decl.item;
-        let function = self.gen_func_decl(item.decl.as_ref())?;
-
-        let entry = self.context.append_basic_block(function, "entry");
-
+        // 基本ブロックを作成
+        let entry = self.context.append_basic_block(func.value, "entry");
         self.builder.position_at_end(entry);
 
         self.variables.clear();
 
         // 関数の引数を変数表に格納
-        self.variables.reserve(decl.params.len());
-        for (i, arg) in function.get_param_iter().enumerate() {
-            let arg_name = &decl.params[i];
+        self.variables.reserve(func.params.len());
+        let mut param_iter = func.value.get_param_iter();
+        for (i, &type_) in func.params.iter().enumerate() {
+            let arg_name = &item.decl.item.params[i].item.ident;
 
-            let arg = MglValue {
-                type_: MglType::Double,
-                value: Some(arg),
-            };
-
+            // 引数の変数を作成
             let var = self
                 .value_builder
-                .create_variable(function, MglType::Double, &arg_name.item);
-            self.value_builder
-                .build_store(var, Sp::new(arg, arg_name.span))?;
+                .create_variable(func.value, type_, &arg_name.item);
 
-            self.variables.insert(decl.params[i].item.clone(), var);
+            // 変数表に変数を格納
+            self.variables.insert(arg_name.item.clone(), var);
+
+            // 引数値を取得
+            let arg_value = MglValue {
+                type_,
+                // MglTypeに対応するinkwell型がある場合は、inkwellの引数の値を格納
+                value: self
+                    .value_builder
+                    .ink_type(type_)
+                    .and_then(|_| Some(param_iter.next().unwrap())),
+            };
+
+            // 引数値を変数に格納
+            self.value_builder
+                .build_store(var, Sp::new(arg_value, arg_name.span))?;
         }
 
         // 関数本体のコード生成
@@ -134,20 +209,23 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         if let Some(body) = body {
             // return文が無いパスがある場合はここでreturnを作成
-            self.value_builder.build_return(body);
+            self.value_builder.build_return(
+                self.current_fn.as_ref().unwrap().ret_type,
+                Sp::new(body, item.body.span),
+            )?;
         }
 
         // 関数を検証して最適化を行う
-        if function.verify(true) {
+        if func.value.verify(true) {
             if let Some(fpm) = &self.fpm {
-                fpm.run_on(&function);
+                fpm.run_on(&func.value);
             }
 
-            Ok(function)
+            Ok(func)
         } else {
             self.module.print_to_stderr();
             unsafe {
-                function.delete();
+                func.value.delete();
             }
 
             Err(Sp::new(CodeGenError::InvalidFunction, span))
@@ -171,7 +249,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 式があれば生成して評価結果を返し、式が無ければunitを返す
         match &item.expr {
-            Some(e) => self.gen_expr(e.as_ref()),
+            Some(x) => self.gen_expr(x.as_ref()),
             None => Ok(Some(MglValue::unit())),
         }
     }
@@ -180,8 +258,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span: _ } = ast;
 
         let res = match item {
-            ast::Stmt::Assign(a) => self.gen_assign(a.as_ref(), false),
-            ast::Stmt::Expr(e) => self.gen_expr(e.as_ref()),
+            ast::Stmt::Assign(x) => self.gen_assign(x.as_ref(), false),
+            ast::Stmt::Expr(x) => self.gen_expr(x.as_ref()),
         }?;
         // 式の評価結果を捨てる
         Ok(res.and(Some(())))
@@ -211,7 +289,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
                 ));
             }
             let alloca = self.value_builder.create_variable(
-                self.get_func(),
+                self.current_fn.as_ref().unwrap().value,
                 MglType::Double,
                 &item.var_name.item,
             );
@@ -234,21 +312,21 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span } = ast;
 
         match item.as_ref() {
-            ast::Expr::Set(a) => self.gen_assign(Sp::new(a, span), true),
-            ast::Expr::Return(r) => self.gen_return(Sp::new(r, span)),
-            ast::Expr::Op(o) => self.gen_op_expr(Sp::new(o, span)),
-            ast::Expr::Number(n) => Ok(Some(self.value_builder.double(*n))),
-            ast::Expr::Ident(i) => {
+            ast::Expr::Set(x) => self.gen_assign(Sp::new(x, span), true),
+            ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
+            ast::Expr::Op(x) => self.gen_op_expr(Sp::new(x, span)),
+            ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
+            ast::Expr::Ident(s) => {
                 let var = *self
                     .variables
-                    .get(i)
-                    .ok_or(Sp::new(CodeGenError::UnresolvedName(i.to_owned()), span))?;
+                    .get(s)
+                    .ok_or(Sp::new(CodeGenError::UnresolvedName(s.to_owned()), span))?;
                 Ok(Some(self.value_builder.build_load(var)))
             }
-            ast::Expr::FuncCall(fc) => self.gen_func_call(Sp::new(fc, span)),
-            ast::Expr::Block(b) => self.gen_block(Sp::new(b, span)),
-            ast::Expr::If(i) => self.gen_if(Sp::new(i, span)),
-            ast::Expr::For(f) => self.gen_for(Sp::new(f, span)),
+            ast::Expr::FuncCall(x) => self.gen_func_call(Sp::new(x, span)),
+            ast::Expr::Block(x) => self.gen_block(Sp::new(x, span)),
+            ast::Expr::If(x) => self.gen_if(Sp::new(x, span)),
+            ast::Expr::For(x) => self.gen_for(Sp::new(x, span)),
         }
     }
 
@@ -256,9 +334,13 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         &mut self,
         ast: Sp<&Box<ast::Expr>>,
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let span = ast.span;
         let val = self.gen_expr(ast)?;
         if let Some(val) = val {
-            self.value_builder.build_return(val);
+            self.value_builder.build_return(
+                self.current_fn.as_ref().unwrap().ret_type,
+                Sp::new(val, span),
+            )?;
         }
         Ok(None)
     }
@@ -274,6 +356,19 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         self.value_builder.build_op(item.op.item, lhs, rhs, span)
     }
 
+    fn gen_literal(
+        &mut self,
+        ast: Sp<&ast::Literal>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        match item {
+            ast::Literal::Unit(_) => Ok(Some(MglValue::unit())),
+            ast::Literal::Float(v) => Ok(Some(self.value_builder.double(*v))),
+            ast::Literal::Bool(v) => Ok(Some(self.value_builder.bool(*v))),
+        }
+    }
+
     fn gen_func_call(
         &mut self,
         ast: Sp<&ast::FuncCall>,
@@ -282,19 +377,20 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 関数名から関数を取得
         let func = self
-            .module
-            .get_function(&item.func_name.item)
+            .functions
+            .get(&item.func_name.item)
             .ok_or(Sp::new(
                 CodeGenError::UnresolvedName(item.func_name.item.to_owned()),
                 item.func_name.span,
-            ))?;
+            ))?
+            .clone();
 
         // 引数の数のチェック
-        if item.args.len() != func.count_params() as usize {
+        if item.args.len() != func.params.len() {
             return Err(Sp::new(
                 CodeGenError::InvalidNumberOfArguments {
-                    expected: func.count_params(),
-                    found: item.args.len() as u32,
+                    expected: func.params.len(),
+                    found: item.args.len(),
                 },
                 span,
             ));
@@ -312,7 +408,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 関数呼び出し命令を作成
         self.value_builder
-            .build_call(func, &args, &item.func_name.item, span)
+            .build_call(&func, &args, &item.func_name.item)
     }
 
     fn gen_if(&mut self, ast: Sp<&ast::If>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
@@ -351,7 +447,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
 
         // 分岐用の基本ブロックを作成
         let then_bb = self.context.append_basic_block(parent, "then");
@@ -368,8 +464,18 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // thenのコード生成
         let then_val = self.gen_block(item.then.as_ref())?;
-        // TODO: thenの値がunitであるか確認する
-        if then_val.is_some() {
+
+        if let Some(then_val) = then_val {
+            // thenの値がunitでない場合はエラー
+            if then_val.type_ != MglType::Unit {
+                return Err(Sp::new(
+                    CodeGenError::MismatchedTypes {
+                        expected: MglType::Unit,
+                        found: then_val.type_,
+                    },
+                    ast.item.then.span,
+                ));
+            }
             self.builder.build_unconditional_branch(merge_bb);
         }
 
@@ -387,7 +493,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
 
         // if式を評価した値を格納する変数
         let mut if_var = None;
@@ -478,7 +584,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_for(&mut self, ast: Sp<&ast::For>) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
-        let parent = self.get_func();
+        let parent = self.current_fn.as_ref().unwrap().value;
         let var_name = &item.var_name.item;
 
         // インデックス変数を作成
@@ -563,15 +669,6 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
 
         Ok(Some(MglValue::unit()))
-    }
-
-    /// builderが現在処理中の関数を得る
-    fn get_func(&self) -> FunctionValue<'ctx> {
-        self.builder
-            .get_insert_block()
-            .unwrap()
-            .get_parent()
-            .unwrap()
     }
 }
 

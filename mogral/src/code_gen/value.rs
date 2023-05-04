@@ -9,9 +9,10 @@ use inkwell::{
 use crate::{
     op::Op,
     pos::{Span, Spanned},
+    types::MglType,
 };
 
-use super::{error::CodeGenError, types::MglType};
+use super::error::CodeGenError;
 
 /// MograLで使用する値
 #[derive(Clone, Copy)]
@@ -156,53 +157,67 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     }
 
     /// MglValueを返すreturn命令を作成する
-    pub fn build_return(&self, value: MglValue<'ctx>) -> InstructionValue<'ctx> {
-        match value.value {
+    pub fn build_return(
+        &self,
+        ret_type: MglType,
+        value: Spanned<MglValue<'ctx>>,
+    ) -> Result<InstructionValue<'ctx>, Spanned<CodeGenError>> {
+        // 戻り値の型チェック
+        if value.item.type_ != ret_type {
+            return Err(Spanned::new(
+                CodeGenError::MismatchedTypes {
+                    expected: ret_type,
+                    found: value.item.type_,
+                },
+                value.span,
+            ));
+        }
+
+        // return命令を作成
+        Ok(match value.item.value {
             Some(value) => self.builder.build_return(Some(&value)),
             None => self.builder.build_return(None),
-        }
+        })
     }
 
     /// 関数呼び出し命令を作成する
     pub fn build_call(
         &self,
-        function: FunctionValue<'ctx>,
+        function: &MglFunction<'ctx>,
         args: &[Spanned<MglValue<'ctx>>],
         name: &str,
-        span: Span,
     ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
-        let mut ink_args = Vec::new();
-        for arg in args {
+        // inkwellの引数のVecを作成
+        let mut ink_args = Vec::with_capacity(args.len());
+        for (param_ty, arg) in function.params.iter().zip(args) {
             // 引数の型チェック
-            // TODO: Double型以外を渡せるようにする
-            if arg.item.type_ != MglType::Double {
+            if arg.item.type_ != *param_ty {
                 return Err(Spanned::new(
                     CodeGenError::MismatchedTypes {
-                        expected: MglType::Double,
+                        expected: *param_ty,
                         found: arg.item.type_,
                     },
                     arg.span,
                 ));
             }
 
+            // 引数に追加
             if let Some(val) = arg.item.value {
                 ink_args.push(val.into());
             }
         }
 
-        match self
-            .builder
-            .build_call(function, &ink_args, name)
-            .try_as_basic_value()
-            .left()
-        {
-            // TODO: Double型以外の戻り値に対応する
-            Some(val) => Ok(Some(MglValue {
-                type_: MglType::Double,
-                value: Some(val),
-            })),
-            None => Err(Spanned::new(CodeGenError::InvalidCall, span)),
-        }
+        // 関数呼び出し命令を作成
+        let call_site = self.builder.build_call(function.value, &ink_args, name);
+
+        // 関数の戻り値を返す
+        Ok(Some(MglValue {
+            type_: function.ret_type,
+            value: match self.ink_type(function.ret_type) {
+                Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
+                None => None,
+            },
+        }))
     }
 
     /// 演算命令を作成する
@@ -344,4 +359,11 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
             rhs: rhs.type_,
         })
     }
+}
+
+#[derive(Clone)]
+pub struct MglFunction<'ctx> {
+    pub params: Vec<MglType>,
+    pub ret_type: MglType,
+    pub value: FunctionValue<'ctx>,
 }

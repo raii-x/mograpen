@@ -1091,6 +1091,8 @@ dependencies = [
  "lalrpop",
  "lalrpop-util",
  "regex",
+ "strum",
+ "strum_macros",
  "thiserror",
 ]
 

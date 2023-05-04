@@ -2,6 +2,7 @@ use std::str::FromStr;
 use crate::ast;
 use crate::pos::{Span, Spanned};
 use crate::op::Op;
+use crate::types::MglType;
 
 grammar;
 
@@ -16,9 +17,14 @@ Func:                                       ast::Func = {
     FuncDef                                     => ast::Func::FuncDef(<>),
 };
 FuncDecl:                                   ast::FuncDecl = {
-    "fn" <n:Sp<Ident>> "(" <p:Params> ")"       => ast::FuncDecl { name: n, params: p },
+    "fn" <n:Sp<Ident>> "(" <p:Params> ")"
+        <r:FuncRetType?>                        => ast::FuncDecl { name: n, params: p, ret: r },
 };
-Params = Comma<Sp<Ident>>;
+FuncRetType:                                Spanned<MglType> = {
+    ":" <Sp<Type>>
+};
+
+Params = Comma<Sp<TypedIdent>>;
 FuncDef:                                    ast::FuncDef = {
     <d:Sp<FuncDecl>> <b:Sp<Block>>              => ast::FuncDef { decl: d, body: b },
 };
@@ -55,7 +61,7 @@ AddExpr = Tier<AddOp, MulExpr>;
 MulExpr = Tier<MulOp, Primary>;
 
 Primary:                                    Box<ast::Expr> = {
-    Number                                      => Box::new(ast::Expr::Number(<>)),
+    Literal                                     => Box::new(ast::Expr::Literal(<>)),
     Ident                                       => Box::new(ast::Expr::Ident(<>)),
     FuncCall                                    => Box::new(ast::Expr::FuncCall(<>)),
     "(" <Expr> ")",
@@ -97,6 +103,10 @@ For:                                        ast::For = {
         <b:Sp<Block>>                           => ast::For { var_name: v, until: u, body: b },
 };
 
+TypedIdent:                                 ast::TypedIdent = {
+    <i:Sp<Ident>> ":" <t:Sp<Type>>              => ast::TypedIdent { ident: i, type_: t },
+}
+
 CompOp:                                     Op = {
     "<"                                         => Op::Lt,
     ">"                                         => Op::Gt,
@@ -117,7 +127,18 @@ MulOp:                                      Op = {
 Ident:                                      String = {
     r"[A-Za-z_][A-Za-z_0-9]*"                   => <>.to_string()
 };
-Number: f64 = {
+
+Literal:                                    ast::Literal = {
+    Unit                                        => ast::Literal::Unit(<>),
+    Number                                      => ast::Literal::Float(<>),
+    Bool                                        => ast::Literal::Bool(<>),
+};
+
+Unit:                                       () = {
+    "(" ")"                                     => (),
+}
+
+Number:                                     f64 = {
     Integer,
     Float,
 }
@@ -126,6 +147,17 @@ Integer:                                    f64 = {
 }
 Float:                                      f64 = {
     r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
+}
+
+Bool:                                       bool = {
+    "true"                                      => true,
+    "false"                                     => false,
+}
+
+Type:                                       MglType = {
+    "(" ")"                                     => MglType::Unit,
+    "double"                                    => MglType::Double,
+    "bool"                                      => MglType::Bool,
 }
 
 Comma<T>:                                   Vec<T> = {

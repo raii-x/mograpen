@@ -1,38 +1,34 @@
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Op {
-    Lt,
-    Gt,
-    Leq,
-    Geq,
-    Eq,
-    Neq,
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
+use strum_macros::IntoStaticStr;
 
-impl Op {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Op::Lt => "<",
-            Op::Gt => ">",
-            Op::Leq => "<=",
-            Op::Geq => ">=",
-            Op::Eq => "==",
-            Op::Neq => "!=",
-            Op::Add => "+",
-            Op::Sub => "-",
-            Op::Mul => "*",
-            Op::Div => "/",
-        }
-    }
+#[derive(Debug, PartialEq, Eq, Clone, Copy, IntoStaticStr)]
+pub enum Op {
+    #[strum(serialize = "<")]
+    Lt,
+    #[strum(serialize = ">")]
+    Gt,
+    #[strum(serialize = "<=")]
+    Leq,
+    #[strum(serialize = ">=")]
+    Geq,
+    #[strum(serialize = "==")]
+    Eq,
+    #[strum(serialize = "!=")]
+    Neq,
+    #[strum(serialize = "+")]
+    Add,
+    #[strum(serialize = "-")]
+    Sub,
+    #[strum(serialize = "*")]
+    Mul,
+    #[strum(serialize = "/")]
+    Div,
 }
 
 impl Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
+        let s: &str = self.into();
+        write!(f, "{}", s)
     }
 }

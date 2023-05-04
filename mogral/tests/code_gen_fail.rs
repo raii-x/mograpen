@@ -22,14 +22,14 @@ fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError)
 fn assign_mismatched_types_double_unit() {
     let source = r#"
 fn main() {
-    x = if 1 == 1 { 0 };
+    x = ();
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (3, 9),
-            (3, 24),
+            (3, 11),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -42,17 +42,37 @@ fn main() {
 fn assign_mismatched_types_double_bool() {
     let source = r#"
 fn main() {
-    x = 0 == 0;
+    x = true;
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (3, 9),
-            (3, 15),
+            (3, 13),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
+            }
+        )
+    );
+}
+
+#[test]
+fn set_mismatched_types() {
+    let source = r#"
+fn main(x: bool) {
+    set x = 0;
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 13),
+            (3, 14),
+            MismatchedTypes {
+                expected: MglType::Bool,
+                found: MglType::Double
             }
         )
     );
@@ -79,17 +99,37 @@ fn main() {
 }
 
 #[test]
-fn if_else_mismatched_types() {
+fn if_mismatched_types_not_unit_then() {
     let source = r#"
 fn main() {
-    x = if 0 == 0 { 1 } else {};
+    if true { 0 };
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
+            (3, 13),
+            (3, 18),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
+fn if_else_mismatched_types() {
+    let source = r#"
+fn main() {
+    x = if true { 1 } else {};
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 28),
             (3, 30),
-            (3, 32),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -101,19 +141,55 @@ fn main() {
 #[test]
 fn func_call_mismatched_types() {
     let source = r#"
-fn f(x) { x }
+fn f(x: double): double { x }
 fn main() {
-    f(0 == 0);
+    f(true);
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
             (4, 7),
-            (4, 13),
+            (4, 11),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
+            }
+        )
+    );
+}
+
+#[test]
+fn function_expression_mismatched_types() {
+    let source = r#"
+fn main() { 0 }
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (2, 11),
+            (2, 16),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
+fn return_mismatched_types() {
+    let source = r#"
+fn main() { return 0; }
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (2, 13),
+            (2, 21),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
             }
         )
     );
@@ -133,19 +209,20 @@ fn invalid_operand_types_double_unit() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} {{}};
+    x = 0 {} ();
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 14 + op.as_str().len()),
+                (3, 14 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -170,19 +247,20 @@ fn invalid_operand_types_double_bool() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} (0 == 0);
+    x = 0 {} true;
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 20 + op.as_str().len()),
+                (3, 16 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -205,19 +283,20 @@ fn invalid_operand_types_ord_arith_bool() {
         Op::Mul,
         Op::Div,
     ] {
+        let op_str: &str = op.into();
         let source = format!(
             r#"
 fn main() {{
-    x = (0 == 0) {} (0 == 0);
+    x = true {} true;
 }}
 "#,
-            op.as_str()
+            op_str
         );
         assert_eq!(
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 27 + op.as_str().len()),
+                (3, 19 + op_str.len()),
                 InvalidOperandTypes {
                     op,
                     lhs: MglType::Bool,
@@ -231,7 +310,7 @@ fn main() {{
 #[test]
 fn unresolved_name_variable_ref() {
     let source = r#"
-fn main() {
+fn main(): double {
     x
 }
 "#;
@@ -270,7 +349,7 @@ fn main() {
 #[test]
 fn for_variable_scope() {
     let source = r#"
-fn main() {
+fn main(): double {
 	for i, 5 {}
     i
 }"#;
@@ -297,7 +376,7 @@ fn main() {
 #[test]
 fn invalid_number_of_arguments() {
     let source = r#"
-fn f(x) { x }
+fn f(x: double): double { x }
 fn main() {
     f(0, 1);
 }
@@ -312,5 +391,17 @@ fn main() {
                 found: 2
             }
         )
+    );
+}
+
+#[test]
+fn multiple_definitions() {
+    let source = r#"
+fn main() {}
+fn main() {}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((3, 1), (3, 10), MultipleDefinitions("main".to_owned()))
     );
 }
