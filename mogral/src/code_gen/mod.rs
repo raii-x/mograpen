@@ -464,8 +464,18 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // thenのコード生成
         let then_val = self.gen_block(item.then.as_ref())?;
-        // TODO: thenの値がunitであるか確認する
-        if then_val.is_some() {
+
+        if let Some(then_val) = then_val {
+            // thenの値がunitでない場合はエラー
+            if then_val.type_ != MglType::Unit {
+                return Err(Sp::new(
+                    CodeGenError::MismatchedTypes {
+                        expected: MglType::Unit,
+                        found: then_val.type_,
+                    },
+                    ast.item.then.span,
+                ));
+            }
             self.builder.build_unconditional_branch(merge_bb);
         }
 
