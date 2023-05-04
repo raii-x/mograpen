@@ -75,7 +75,7 @@ fn variable_explicit_type() {
 fn main(x: double): double {
     d: double = 5;
     b: bool = true;
-    u: unit = ();
+    u: () = ();
     if d != 5 { return 1; }
     if b != true { return 1; }
     if u != () { return 1; }
