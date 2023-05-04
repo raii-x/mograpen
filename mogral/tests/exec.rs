@@ -33,7 +33,7 @@ fn main(x: double): double {
 }
 
 #[test]
-fn variable() {
+fn variable_double() {
     let source = r#"
 fn main(x: double): double {
 	v = 5;
@@ -43,6 +43,30 @@ fn main(x: double): double {
 	return v;
 }"#;
     assert_eq!(source_exec(source, 0.0), 8.0);
+}
+
+#[test]
+fn variable_bool() {
+    let source = r#"
+fn main(x: double): double {
+    v = true;
+    for i, 3 {
+        set v = if v { false } else { true };
+    }
+    if v { 1 } else { 0 }
+}"#;
+    assert_eq!(source_exec(source, 0.0), 0.0);
+}
+
+#[test]
+fn variable_unit() {
+    let source = r#"
+fn main(x: double): double {
+    v = ();
+    set v = ();
+    0
+}"#;
+    assert_eq!(source_exec(source, 0.0), 0.0);
 }
 
 #[test]
