@@ -317,3 +317,15 @@ fn main() {
         )
     );
 }
+
+#[test]
+fn multiple_definitions() {
+    let source = r#"
+fn main() {}
+fn main() {}
+"#;
+    assert_eq!(
+        code_gen_fail(&source),
+        ((3, 1), (3, 10), MultipleDefinitions("main".to_owned()))
+    );
+}
