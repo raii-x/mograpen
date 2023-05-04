@@ -191,3 +191,30 @@ fn main(x: double): double {
 "#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
+
+#[test]
+fn arg_return_unit() {
+    let source = r#"
+fn sub(x: ()) {
+    x
+}
+fn main(x: double): double {
+    if sub(()) == () { 0 } else { 1 }
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+}
+
+#[test]
+fn arg_return_bool() {
+    let source = r#"
+fn sub(x: bool): bool {
+    x == true
+}
+fn main(x: double): double {
+    if sub(x == 0) { 0 } else { 1 }
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+    assert_eq!(source_exec(&source, 1.0), 1.0);
+}
