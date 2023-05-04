@@ -19,7 +19,7 @@ fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError)
 }
 
 #[test]
-fn assign_mismatched_types_double_unit() {
+fn let_mismatched_types_double_unit() {
     let source = r#"
 fn main() {
     x: double = ();
@@ -39,7 +39,7 @@ fn main() {
 }
 
 #[test]
-fn assign_mismatched_types_double_bool() {
+fn let_mismatched_types_double_bool() {
     let source = r#"
 fn main() {
     x: double = true;
