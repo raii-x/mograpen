@@ -7,9 +7,9 @@ use inkwell::{
 };
 
 use crate::{
-    op::Op,
     pos::{Span, Spanned},
     types::MglType,
+    Op, UnaryOp,
 };
 
 use super::error::CodeGenError;
@@ -221,7 +221,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
         }))
     }
 
-    /// 演算命令を作成する
+    /// 二項演算命令を作成する
     pub fn build_op(
         &self,
         op: Op,
@@ -358,6 +358,58 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
             op,
             lhs: lhs.type_,
             rhs: rhs.type_,
+        })
+    }
+
+    /// 単項演算命令を作成する
+    pub fn build_unary_op(
+        &self,
+        op: UnaryOp,
+        opnd: Option<MglValue<'ctx>>,
+        span: Span,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
+        match opnd {
+            Some(opnd) => self
+                .build_unary_op_inner(op, opnd)
+                .map(Some)
+                .map_err(|e| Spanned::new(e, span)),
+            _ => Ok(None),
+        }
+    }
+
+    fn build_unary_op_inner(
+        &self,
+        op: UnaryOp,
+        opnd: MglValue<'ctx>,
+    ) -> Result<MglValue<'ctx>, CodeGenError> {
+        match opnd.type_ {
+            MglType::Double => {
+                let opnd = opnd.value.unwrap().into_float_value();
+
+                match op {
+                    UnaryOp::Neg => Some(MglValue {
+                        type_: MglType::Double,
+                        value: Some(self.builder.build_float_neg(opnd, "negtmp").into()),
+                    }),
+                    _ => None,
+                }
+            }
+            MglType::Bool => {
+                let opnd = opnd.value.unwrap().into_int_value();
+
+                match op {
+                    UnaryOp::Not => Some(MglValue {
+                        type_: MglType::Bool,
+                        value: Some(self.builder.build_not(opnd, "nottmp").into()),
+                    }),
+                    _ => None,
+                }
+            }
+            MglType::Unit => None,
+        }
+        .ok_or(CodeGenError::InvalidUnaryOperandType {
+            op,
+            type_: opnd.type_,
         })
     }
 }

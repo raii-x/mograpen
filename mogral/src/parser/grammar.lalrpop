@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::ast;
 use crate::pos::{Span, Spanned};
-use crate::op::Op;
+use crate::op::{Op, UnaryOp};
 use crate::types::MglType;
 
 grammar;
@@ -46,6 +46,7 @@ Expr:                                       Box<ast::Expr> = {
     Set                                         => Box::new(ast::Expr::Set(<>)),
     Return                                      => Box::new(ast::Expr::Return(<>)),
     OpExpr,
+    ExprWithBlock,
 };
 
 Set:                                        ast::Set = {
@@ -58,14 +59,18 @@ Return:                                     Box<ast::Expr> = {
 
 OpExpr = Tier<CompOp, AddExpr>;
 AddExpr = Tier<AddOp, MulExpr>;
-MulExpr = Tier<MulOp, Primary>;
+MulExpr = Tier<MulOp, UnaryOpExpr>;
+
+UnaryOpExpr:                                Box<ast::Expr> = {
+    <o:Sp<UnaryOp>> <e:Sp<UnaryOpExpr>>         => Box::new(ast::Expr::UnaryOp(ast::UnaryOpExpr { op: o, opnd: e })),
+    Primary,
+};
 
 Primary:                                    Box<ast::Expr> = {
     Literal                                     => Box::new(ast::Expr::Literal(<>)),
     Ident                                       => Box::new(ast::Expr::Ident(<>)),
     FuncCall                                    => Box::new(ast::Expr::FuncCall(<>)),
     "(" <Expr> ")",
-    ExprWithBlock,
 };
 
 FuncCall:                                   ast::FuncCall = {
@@ -131,6 +136,11 @@ MulOp:                                      Op = {
     "*"                                         => Op::Mul,
     "/"                                         => Op::Div,
 };
+
+UnaryOp:                                    UnaryOp = {
+    "-"                                         => UnaryOp::Neg,
+    "!"                                         => UnaryOp::Not,
+}
 
 Ident:                                      String = {
     r"[A-Za-z_][A-Za-z_0-9]*"                   => <>.to_string()

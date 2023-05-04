@@ -330,6 +330,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             ast::Expr::Set(x) => self.gen_set(Sp::new(x, span)),
             ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
             ast::Expr::Op(x) => self.gen_op_expr(Sp::new(x, span)),
+            ast::Expr::UnaryOp(x) => self.gen_unary_op_expr(Sp::new(x, span)),
             ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
             ast::Expr::Ident(s) => {
                 let var = *self
@@ -388,6 +389,16 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let lhs = self.gen_expr(item.lhs.as_ref())?;
         let rhs = self.gen_expr(item.rhs.as_ref())?;
         self.value_builder.build_op(item.op.item, lhs, rhs, span)
+    }
+
+    fn gen_unary_op_expr(
+        &mut self,
+        ast: Sp<&ast::UnaryOpExpr>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span } = ast;
+
+        let opnd = self.gen_expr(item.opnd.as_ref())?;
+        self.value_builder.build_unary_op(item.op.item, opnd, span)
     }
 
     fn gen_literal(
