@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::op::{Op, UnaryOp};
+use crate::op::{BinOp, UnOp};
 use crate::types::MglType;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -17,10 +17,14 @@ pub enum CodeGenError {
     InvalidNumberOfArguments { expected: usize, found: usize },
     #[error("mismatched types (expected {expected}, found {found})")]
     MismatchedTypes { expected: MglType, found: MglType },
-    #[error("invalid operand types ({lhs} {op} {rhs})")]
-    InvalidOperandTypes { op: Op, lhs: MglType, rhs: MglType },
+    #[error("invalid binary operand types ({lhs} {op} {rhs})")]
+    InvalidBinaryOperandTypes {
+        op: BinOp,
+        lhs: MglType,
+        rhs: MglType,
+    },
     #[error("invalid unary operand type ({op} {type_})")]
-    InvalidUnaryOperandType { op: UnaryOp, type_: MglType },
+    InvalidUnaryOperandType { op: UnOp, type_: MglType },
     #[error("multiple definitions of `{0}`")]
     MultipleDefinitions(String),
 }

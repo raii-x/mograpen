@@ -11,7 +11,7 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 use crate::ast;
-use crate::op::Op;
+use crate::op::BinOp;
 use crate::pos::Spanned as Sp;
 use crate::types::MglType;
 
@@ -329,8 +329,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         match item.as_ref() {
             ast::Expr::Set(x) => self.gen_set(Sp::new(x, span)),
             ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
-            ast::Expr::Op(x) => self.gen_op_expr(Sp::new(x, span)),
-            ast::Expr::UnaryOp(x) => self.gen_unary_op_expr(Sp::new(x, span)),
+            ast::Expr::BinOp(x) => self.gen_bin_op_expr(Sp::new(x, span)),
+            ast::Expr::UnOp(x) => self.gen_un_op_expr(Sp::new(x, span)),
             ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
             ast::Expr::Ident(s) => {
                 let var = *self
@@ -380,25 +380,26 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         Ok(None)
     }
 
-    fn gen_op_expr(
+    fn gen_bin_op_expr(
         &mut self,
-        ast: Sp<&ast::OpExpr>,
+        ast: Sp<&ast::BinOpExpr>,
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
         let lhs = self.gen_expr(item.lhs.as_ref())?;
         let rhs = self.gen_expr(item.rhs.as_ref())?;
-        self.value_builder.build_op(item.op.item, lhs, rhs, span)
+        self.value_builder
+            .build_bin_op(item.op.item, lhs, rhs, span)
     }
 
-    fn gen_unary_op_expr(
+    fn gen_un_op_expr(
         &mut self,
-        ast: Sp<&ast::UnaryOpExpr>,
+        ast: Sp<&ast::UnOpExpr>,
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
         let opnd = self.gen_expr(item.opnd.as_ref())?;
-        self.value_builder.build_unary_op(item.op.item, opnd, span)
+        self.value_builder.build_un_op(item.op.item, opnd, span)
     }
 
     fn gen_literal(
@@ -664,7 +665,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         let end_cond = self
             .value_builder
-            .build_op(Op::Lt, Some(index_val), Some(until_val), span)?
+            .build_bin_op(BinOp::Lt, Some(index_val), Some(until_val), span)?
             .unwrap();
 
         let body_bb = self.context.append_basic_block(parent, "loop_body");
@@ -690,8 +691,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // インクリメントしてストア
         let next_index_val = self
             .value_builder
-            .build_op(
-                Op::Add,
+            .build_bin_op(
+                BinOp::Add,
                 Some(index_val),
                 Some(self.value_builder.double(1.0)),
                 span,

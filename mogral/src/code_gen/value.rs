@@ -9,7 +9,7 @@ use inkwell::{
 use crate::{
     pos::{Span, Spanned},
     types::MglType,
-    Op, UnaryOp,
+    BinOp, UnOp,
 };
 
 use super::error::CodeGenError;
@@ -222,30 +222,30 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     }
 
     /// 二項演算命令を作成する
-    pub fn build_op(
+    pub fn build_bin_op(
         &self,
-        op: Op,
+        op: BinOp,
         lhs: Option<MglValue<'ctx>>,
         rhs: Option<MglValue<'ctx>>,
         span: Span,
     ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
         match (lhs, rhs) {
             (Some(lhs), Some(rhs)) => self
-                .build_op_inner(op, lhs, rhs)
+                .build_bin_op_inner(op, lhs, rhs)
                 .map(Some)
                 .map_err(|e| Spanned::new(e, span)),
             _ => Ok(None),
         }
     }
 
-    fn build_op_inner(
+    fn build_bin_op_inner(
         &self,
-        op: Op,
+        op: BinOp,
         lhs: MglValue<'ctx>,
         rhs: MglValue<'ctx>,
     ) -> Result<MglValue<'ctx>, CodeGenError> {
         if lhs.type_ != rhs.type_ {
-            return Err(CodeGenError::InvalidOperandTypes {
+            return Err(CodeGenError::InvalidBinaryOperandTypes {
                 op: op.clone(),
                 lhs: lhs.type_,
                 rhs: rhs.type_,
@@ -258,7 +258,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 let rhs_v = rhs.value.unwrap().into_float_value();
 
                 match op {
-                    Op::Lt => Some(MglValue {
+                    BinOp::Lt => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -266,7 +266,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Gt => Some(MglValue {
+                    BinOp::Gt => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -274,7 +274,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Leq => Some(MglValue {
+                    BinOp::Leq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -282,7 +282,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Geq => Some(MglValue {
+                    BinOp::Geq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -290,7 +290,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Eq => Some(MglValue {
+                    BinOp::Eq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -298,7 +298,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Neq => Some(MglValue {
+                    BinOp::Neq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -306,19 +306,19 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Add => Some(MglValue {
+                    BinOp::Add => Some(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_add(lhs_v, rhs_v, "addtmp").into()),
                     }),
-                    Op::Sub => Some(MglValue {
+                    BinOp::Sub => Some(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_sub(lhs_v, rhs_v, "subtmp").into()),
                     }),
-                    Op::Mul => Some(MglValue {
+                    BinOp::Mul => Some(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_mul(lhs_v, rhs_v, "multmp").into()),
                     }),
-                    Op::Div => Some(MglValue {
+                    BinOp::Div => Some(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_div(lhs_v, rhs_v, "divtmp").into()),
                     }),
@@ -329,7 +329,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 let rhs_v = rhs.value.unwrap().into_int_value();
 
                 match op {
-                    Op::Eq => Some(MglValue {
+                    BinOp::Eq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -337,7 +337,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                                 .into(),
                         ),
                     }),
-                    Op::Neq => Some(MglValue {
+                    BinOp::Neq => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(
                             self.builder
@@ -349,12 +349,12 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 }
             }
             MglType::Unit => match op {
-                Op::Eq => Some(self.bool(true)),
-                Op::Neq => Some(self.bool(false)),
+                BinOp::Eq => Some(self.bool(true)),
+                BinOp::Neq => Some(self.bool(false)),
                 _ => None,
             },
         }
-        .ok_or(CodeGenError::InvalidOperandTypes {
+        .ok_or(CodeGenError::InvalidBinaryOperandTypes {
             op,
             lhs: lhs.type_,
             rhs: rhs.type_,
@@ -362,24 +362,24 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     }
 
     /// 単項演算命令を作成する
-    pub fn build_unary_op(
+    pub fn build_un_op(
         &self,
-        op: UnaryOp,
+        op: UnOp,
         opnd: Option<MglValue<'ctx>>,
         span: Span,
     ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
         match opnd {
             Some(opnd) => self
-                .build_unary_op_inner(op, opnd)
+                .build_un_op_inner(op, opnd)
                 .map(Some)
                 .map_err(|e| Spanned::new(e, span)),
             _ => Ok(None),
         }
     }
 
-    fn build_unary_op_inner(
+    fn build_un_op_inner(
         &self,
-        op: UnaryOp,
+        op: UnOp,
         opnd: MglValue<'ctx>,
     ) -> Result<MglValue<'ctx>, CodeGenError> {
         match opnd.type_ {
@@ -387,7 +387,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 let opnd = opnd.value.unwrap().into_float_value();
 
                 match op {
-                    UnaryOp::Neg => Some(MglValue {
+                    UnOp::Neg => Some(MglValue {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_neg(opnd, "negtmp").into()),
                     }),
@@ -398,7 +398,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 let opnd = opnd.value.unwrap().into_int_value();
 
                 match op {
-                    UnaryOp::Not => Some(MglValue {
+                    UnOp::Not => Some(MglValue {
                         type_: MglType::Bool,
                         value: Some(self.builder.build_not(opnd, "nottmp").into()),
                     }),

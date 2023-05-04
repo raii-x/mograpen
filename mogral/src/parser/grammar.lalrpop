@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::ast;
 use crate::pos::{Span, Spanned};
-use crate::op::{Op, UnaryOp};
+use crate::op::{BinOp, UnOp};
 use crate::types::MglType;
 
 grammar;
@@ -45,7 +45,7 @@ Let:                                        ast::Let = {
 Expr:                                       Box<ast::Expr> = {
     Set                                         => Box::new(ast::Expr::Set(<>)),
     Return                                      => Box::new(ast::Expr::Return(<>)),
-    OpExpr,
+    BinOpExpr,
     ExprWithBlock,
 };
 
@@ -57,12 +57,12 @@ Return:                                     Box<ast::Expr> = {
     "return" <Expr>,
 };
 
-OpExpr = Tier<CompOp, AddExpr>;
+BinOpExpr = Tier<CompOp, AddExpr>;
 AddExpr = Tier<AddOp, MulExpr>;
-MulExpr = Tier<MulOp, UnaryOpExpr>;
+MulExpr = Tier<MulOp, UnOpExpr>;
 
-UnaryOpExpr:                                Box<ast::Expr> = {
-    <o:Sp<UnaryOp>> <e:Sp<UnaryOpExpr>>         => Box::new(ast::Expr::UnaryOp(ast::UnaryOpExpr { op: o, opnd: e })),
+UnOpExpr:                                   Box<ast::Expr> = {
+    <o:Sp<UnOp>> <e:Sp<UnOpExpr>>               => Box::new(ast::Expr::UnOp(ast::UnOpExpr { op: o, opnd: e })),
     Primary,
 };
 
@@ -120,26 +120,26 @@ TypeAnnotation:                             Spanned<MglType> = {
     ":" <Sp<Type>>
 }
 
-CompOp:                                     Op = {
-    "<"                                         => Op::Lt,
-    ">"                                         => Op::Gt,
-    "<="                                        => Op::Leq,
-    ">="                                        => Op::Geq,
-    "=="                                        => Op::Eq,
-    "!="                                        => Op::Neq,
+CompOp:                                     BinOp = {
+    "<"                                         => BinOp::Lt,
+    ">"                                         => BinOp::Gt,
+    "<="                                        => BinOp::Leq,
+    ">="                                        => BinOp::Geq,
+    "=="                                        => BinOp::Eq,
+    "!="                                        => BinOp::Neq,
 };
-AddOp:                                      Op = {
-    "+"                                         => Op::Add,
-    "-"                                         => Op::Sub,
+AddOp:                                      BinOp = {
+    "+"                                         => BinOp::Add,
+    "-"                                         => BinOp::Sub,
 };
-MulOp:                                      Op = {
-    "*"                                         => Op::Mul,
-    "/"                                         => Op::Div,
+MulOp:                                      BinOp = {
+    "*"                                         => BinOp::Mul,
+    "/"                                         => BinOp::Div,
 };
 
-UnaryOp:                                    UnaryOp = {
-    "-"                                         => UnaryOp::Neg,
-    "!"                                         => UnaryOp::Not,
+UnOp:                                       UnOp = {
+    "-"                                         => UnOp::Neg,
+    "!"                                         => UnOp::Not,
 }
 
 Ident:                                      String = {
@@ -188,9 +188,9 @@ Comma<T>:                                   Vec<T> = {
                                                 }
 };
 
-Tier<Op, NextTier>:                         Box<ast::Expr> = {
-    <l:Sp<Tier<Op, NextTier>>> <o:Sp<Op>>
-        <r:Sp<NextTier>>                        => Box::new(ast::Expr::Op(ast::OpExpr { lhs: l, op: o, rhs: r })),
+Tier<BinOp, NextTier>:                      Box<ast::Expr> = {
+    <l:Sp<Tier<BinOp, NextTier>>>
+        <o:Sp<BinOp>> <r:Sp<NextTier>>          => Box::new(ast::Expr::BinOp(ast::BinOpExpr { lhs: l, op: o, rhs: r })),
     NextTier
 };
 

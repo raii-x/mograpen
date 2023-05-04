@@ -167,10 +167,10 @@ fn main(x: double): double {a = 7; a}
 #[test]
 fn arith() {
     for (op, ans) in [
-        (Op::Add, 8.0),
-        (Op::Sub, 4.0),
-        (Op::Mul, 12.0),
-        (Op::Div, 3.0),
+        (BinOp::Add, 8.0),
+        (BinOp::Sub, 4.0),
+        (BinOp::Mul, 12.0),
+        (BinOp::Div, 3.0),
     ] {
         let source = format!(
             r#"

@@ -1,4 +1,4 @@
-use crate::{pos::Spanned, MglType, Op, UnaryOp};
+use crate::{pos::Spanned, BinOp, MglType, UnOp};
 
 /// ASTのノードをツリーとして表示するためのトレイト
 pub trait ASTNode {
@@ -92,8 +92,8 @@ ast_node_enum! {
     Expr;
     Set(Set),
     Return(Box<Expr>),
-    Op(OpExpr),
-    UnaryOp(UnaryOpExpr),
+    BinOp(BinOpExpr),
+    UnOp(UnOpExpr),
     Literal(Literal),
     Ident(String),
     FuncCall(FuncCall),
@@ -109,15 +109,15 @@ ast_node_struct! {
 }
 
 ast_node_struct! {
-    OpExpr;
+    BinOpExpr;
     lhs: Spanned<Box<Expr>>,
-    op: Spanned<Op>,
+    op: Spanned<BinOp>,
     rhs: Spanned<Box<Expr>>
 }
 
 ast_node_struct! {
-    UnaryOpExpr;
-    op: Spanned<UnaryOp>,
+    UnOpExpr;
+    op: Spanned<UnOp>,
     opnd: Spanned<Box<Expr>>
 }
 
@@ -203,7 +203,7 @@ impl ASTNode for bool {
     }
 }
 
-impl ASTNode for Op {
+impl ASTNode for BinOp {
     fn node_to_string(&self) -> String {
         "\"".to_owned() + self.into() + "\""
     }
@@ -212,7 +212,7 @@ impl ASTNode for Op {
     }
 }
 
-impl ASTNode for UnaryOp {
+impl ASTNode for UnOp {
     fn node_to_string(&self) -> String {
         "\"".to_owned() + self.into() + "\""
     }
