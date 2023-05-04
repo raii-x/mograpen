@@ -270,7 +270,7 @@ fn main() {{
 #[test]
 fn unresolved_name_variable_ref() {
     let source = r#"
-fn main() {
+fn main(): double {
     x
 }
 "#;
@@ -309,7 +309,7 @@ fn main() {
 #[test]
 fn for_variable_scope() {
     let source = r#"
-fn main() {
+fn main(): double {
 	for i, 5 {}
     i
 }"#;
