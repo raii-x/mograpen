@@ -1,4 +1,8 @@
-use mogral::{self, code_gen, exec, parse, parse_error_pos, MglContext, SourcePosConverter};
+use mogral::{
+    self, code_gen,
+    inkwell::{context::Context, OptimizationLevel},
+    parse, parse_error_pos, SourcePosConverter,
+};
 use std::{
     env,
     error::Error,
@@ -30,15 +34,23 @@ fn compile(buffer: &mut String) -> Result<(), Box<dyn Error + '_>> {
 
     let pos_conv = SourcePosConverter::new(buffer);
 
+    // パース
     let ast = parse(buffer)
         .map_err(|err| LineColError::new(parse_error_pos(&err), &pos_conv, Box::new(err)))?;
 
-    let context = MglContext::new();
+    // コード生成
+    let context = Context::create();
     let module = code_gen(&context, &ast, false)
         .map_err(|err| LineColError::new(err.span.l, &pos_conv, Box::new(err.item)))?;
     println!("{}", module.to_string());
 
-    let res = exec(&module, 1.0)?;
+    // 実行
+    let exec_engine = module.create_jit_execution_engine(OptimizationLevel::Default)?;
+    let res = unsafe {
+        let func = exec_engine.get_function::<unsafe extern "C" fn(f64) -> f64>("main")?;
+        func.call(1.0)
+    };
+
     println!("result: {}", res);
 
     Ok(())

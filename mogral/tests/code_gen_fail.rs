@@ -1,12 +1,13 @@
 extern crate mogral;
 
+use inkwell::context::Context;
 use mogral::CodeGenError::*;
 use mogral::*;
 
 /// 引数のソースコードのコンパイル時のコード生成でのエラーを取得し、
 /// エラー開始位置の行・列番号、エラー終了位置の行・列番号、エラー内容をタプルで返す
 fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError) {
-    let context = MglContext::new();
+    let context = Context::create();
     let err = code_gen(&context, &parse(source).unwrap(), false).unwrap_err();
 
     let conv = SourcePosConverter::new(source);

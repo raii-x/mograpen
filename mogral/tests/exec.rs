@@ -1,11 +1,20 @@
 extern crate mogral;
 
+use inkwell::{context::Context, OptimizationLevel};
 use mogral::*;
 
 fn source_exec(code: &str, arg: f64) -> f64 {
-    let context = MglContext::new();
+    let context = Context::create();
     let module = code_gen(&context, &parse(code).unwrap(), false).unwrap();
-    exec(&module, arg).unwrap()
+    let exec_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .unwrap();
+    unsafe {
+        let func = exec_engine
+            .get_function::<unsafe extern "C" fn(f64) -> f64>("main")
+            .unwrap();
+        func.call(arg)
+    }
 }
 
 #[test]

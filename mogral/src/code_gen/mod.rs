@@ -14,7 +14,6 @@ use crate::ast;
 use crate::op::Op;
 use crate::pos::Spanned as Sp;
 use crate::types::MglType;
-use crate::{MglContext, MglModule};
 
 use self::error::CodeGenError;
 use self::value::{MglFunction, MglValue, MglValueBuilder, MglVariable};
@@ -708,14 +707,14 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 }
 
 pub fn code_gen<'ctx>(
-    context: &'ctx MglContext,
+    context: &'ctx Context,
     ast: &ast::Module,
     optimize: bool,
-) -> Result<MglModule<'ctx>, Sp<CodeGenError>> {
-    let module = context.0.create_module("mogral");
-    let builder = context.0.create_builder();
-    let mut code_gen = CodeGen::new(&context.0, &module, &builder, optimize);
+) -> Result<Module<'ctx>, Sp<CodeGenError>> {
+    let module = context.create_module("mogral");
+    let builder = context.create_builder();
+    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize);
     code_gen.gen_module(&ast)?;
 
-    Ok(MglModule(module))
+    Ok(module)
 }
