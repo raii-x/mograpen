@@ -79,6 +79,26 @@ fn main() {
 }
 
 #[test]
+fn if_mismatched_types_not_unit_then() {
+    let source = r#"
+fn main() {
+    if true { 0 };
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 13),
+            (3, 18),
+            MismatchedTypes {
+                expected: MglType::Unit,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
 fn if_else_mismatched_types() {
     let source = r#"
 fn main() {
