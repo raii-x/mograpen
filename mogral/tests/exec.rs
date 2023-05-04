@@ -70,6 +70,21 @@ fn main(x: double): double {
 }
 
 #[test]
+fn variable_explicit_type() {
+    let source = r#"
+fn main(x: double): double {
+    d: double = 5;
+    b: bool = true;
+    u: unit = ();
+    if d != 5 { return 1; }
+    if b != true { return 1; }
+    if u != () { return 1; }
+    0
+}"#;
+    assert_eq!(source_exec(source, 0.0), 0.0);
+}
+
+#[test]
 fn early_return() {
     let source = r#"
 fn main(x: double): double {
