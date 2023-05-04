@@ -1,4 +1,4 @@
-use crate::{op::Op, pos::Spanned, MglType};
+use crate::{pos::Spanned, BinOp, MglType, UnOp};
 
 /// ASTのノードをツリーとして表示するためのトレイト
 pub trait ASTNode {
@@ -92,7 +92,8 @@ ast_node_enum! {
     Expr;
     Set(Set),
     Return(Box<Expr>),
-    Op(OpExpr),
+    BinOp(BinOpExpr),
+    UnOp(UnOpExpr),
     Literal(Literal),
     Ident(String),
     FuncCall(FuncCall),
@@ -108,10 +109,16 @@ ast_node_struct! {
 }
 
 ast_node_struct! {
-    OpExpr;
+    BinOpExpr;
     lhs: Spanned<Box<Expr>>,
-    op: Spanned<Op>,
+    op: Spanned<BinOp>,
     rhs: Spanned<Box<Expr>>
+}
+
+ast_node_struct! {
+    UnOpExpr;
+    op: Spanned<UnOp>,
+    opnd: Spanned<Box<Expr>>
 }
 
 ast_node_enum! {
@@ -196,7 +203,16 @@ impl ASTNode for bool {
     }
 }
 
-impl ASTNode for Op {
+impl ASTNode for BinOp {
+    fn node_to_string(&self) -> String {
+        "\"".to_owned() + self.into() + "\""
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
+impl ASTNode for UnOp {
     fn node_to_string(&self) -> String {
         "\"".to_owned() + self.into() + "\""
     }

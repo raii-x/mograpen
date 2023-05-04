@@ -1,12 +1,13 @@
 extern crate mogral;
 
+use inkwell::context::Context;
 use mogral::CodeGenError::*;
 use mogral::*;
 
 /// 引数のソースコードのコンパイル時のコード生成でのエラーを取得し、
 /// エラー開始位置の行・列番号、エラー終了位置の行・列番号、エラー内容をタプルで返す
 fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError) {
-    let context = MglContext::new();
+    let context = Context::create();
     let err = code_gen(&context, &parse(source).unwrap(), false).unwrap_err();
 
     let conv = SourcePosConverter::new(source);
@@ -198,16 +199,16 @@ fn main() { return 0; }
 #[test]
 fn invalid_operand_types_double_unit() {
     for op in [
-        Op::Lt,
-        Op::Gt,
-        Op::Leq,
-        Op::Geq,
-        Op::Eq,
-        Op::Neq,
-        Op::Add,
-        Op::Sub,
-        Op::Mul,
-        Op::Div,
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -223,7 +224,7 @@ fn main() {{
             (
                 (3, 9),
                 (3, 14 + op_str.len()),
-                InvalidOperandTypes {
+                InvalidBinaryOperandTypes {
                     op,
                     lhs: MglType::Double,
                     rhs: MglType::Unit
@@ -234,18 +235,18 @@ fn main() {{
 }
 
 #[test]
-fn invalid_operand_types_double_bool() {
+fn invalid_binary_operand_types_double_bool() {
     for op in [
-        Op::Lt,
-        Op::Gt,
-        Op::Leq,
-        Op::Geq,
-        Op::Eq,
-        Op::Neq,
-        Op::Add,
-        Op::Sub,
-        Op::Mul,
-        Op::Div,
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -261,7 +262,7 @@ fn main() {{
             (
                 (3, 9),
                 (3, 16 + op_str.len()),
-                InvalidOperandTypes {
+                InvalidBinaryOperandTypes {
                     op,
                     lhs: MglType::Double,
                     rhs: MglType::Bool
@@ -272,16 +273,16 @@ fn main() {{
 }
 
 #[test]
-fn invalid_operand_types_ord_arith_bool() {
+fn invalid_binary_operand_types_ord_arith_bool() {
     for op in [
-        Op::Lt,
-        Op::Gt,
-        Op::Leq,
-        Op::Geq,
-        Op::Add,
-        Op::Sub,
-        Op::Mul,
-        Op::Div,
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -297,10 +298,60 @@ fn main() {{
             (
                 (3, 9),
                 (3, 19 + op_str.len()),
-                InvalidOperandTypes {
+                InvalidBinaryOperandTypes {
                     op,
                     lhs: MglType::Bool,
                     rhs: MglType::Bool
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_unary_operand_type_neg() {
+    for (operand, type_) in [("true", MglType::Bool), ("()", MglType::Unit)] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = -{};
+}}
+"#,
+            operand
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10 + operand.len()),
+                InvalidUnaryOperandType {
+                    op: UnOp::Neg,
+                    type_
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_unary_operand_type_not() {
+    for (operand, type_) in [("0", MglType::Double), ("()", MglType::Unit)] {
+        let source = format!(
+            r#"
+fn main() {{
+    x = !{};
+}}
+"#,
+            operand
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10 + operand.len()),
+                InvalidUnaryOperandType {
+                    op: UnOp::Not,
+                    type_
                 }
             )
         );

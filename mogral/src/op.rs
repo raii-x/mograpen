@@ -3,7 +3,7 @@ use std::fmt::Display;
 use strum_macros::IntoStaticStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, IntoStaticStr)]
-pub enum Op {
+pub enum BinOp {
     #[strum(serialize = "<")]
     Lt,
     #[strum(serialize = ">")]
@@ -26,7 +26,22 @@ pub enum Op {
     Div,
 }
 
-impl Display for Op {
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: &str = self.into();
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, IntoStaticStr)]
+pub enum UnOp {
+    #[strum(serialize = "-")]
+    Neg,
+    #[strum(serialize = "!")]
+    Not,
+}
+
+impl Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s: &str = self.into();
         write!(f, "{}", s)

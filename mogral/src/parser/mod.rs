@@ -22,7 +22,7 @@ fn main(a: double, b: double): double {
     set a = 5;
     x = if b == 4 * 3 + (1 - 2) { 3 } else { ext() };
 	for i, 10 {
-        _3 = i / { ext(); .5 };
+        _3 = i / ({ ext(); .5 });
         if i > b {
             return 3.05;
         }
@@ -36,9 +36,6 @@ fn sub(a: (), b: bool): bool {
     false
 }
 "#;
-        assert!(match parse(code) {
-            Ok(_) => true,
-            Err(_) => false,
-        });
+        parse(code).unwrap();
     }
 }

@@ -1,11 +1,20 @@
 extern crate mogral;
 
+use inkwell::{context::Context, OptimizationLevel};
 use mogral::*;
 
 fn source_exec(code: &str, arg: f64) -> f64 {
-    let context = MglContext::new();
+    let context = Context::create();
     let module = code_gen(&context, &parse(code).unwrap(), false).unwrap();
-    exec(&module, arg).unwrap()
+    let exec_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .unwrap();
+    unsafe {
+        let func = exec_engine
+            .get_function::<unsafe extern "C" fn(f64) -> f64>("main")
+            .unwrap();
+        func.call(arg)
+    }
 }
 
 #[test]
@@ -158,10 +167,10 @@ fn main(x: double): double {a = 7; a}
 #[test]
 fn arith() {
     for (op, ans) in [
-        (Op::Add, 8.0),
-        (Op::Sub, 4.0),
-        (Op::Mul, 12.0),
-        (Op::Div, 3.0),
+        (BinOp::Add, 8.0),
+        (BinOp::Sub, 4.0),
+        (BinOp::Mul, 12.0),
+        (BinOp::Div, 3.0),
     ] {
         let source = format!(
             r#"
@@ -229,6 +238,50 @@ fn main(x: double): double {
 }
 "#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
+}
+
+#[test]
+fn neg() {
+    let source = r#"
+fn main(x: double): double {
+    -x
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+    assert_eq!(source_exec(&source, 5.0), -5.0);
+}
+
+#[test]
+fn multiple_neg() {
+    let source = r#"
+fn main(x: double): double {
+    ----x
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 0.0);
+    assert_eq!(source_exec(&source, 5.0), 5.0);
+}
+
+#[test]
+fn not() {
+    let source = r#"
+fn main(x: double): double {
+    if !(x == 3) { 1 } else { 0 }
+}
+"#;
+    assert_eq!(source_exec(&source, 2.0), 1.0);
+    assert_eq!(source_exec(&source, 3.0), 0.0);
+}
+
+#[test]
+fn multiple_not() {
+    let source = r#"
+fn main(x: double): double {
+    if !!!!(x == 3) { 1 } else { 0 }
+}
+"#;
+    assert_eq!(source_exec(&source, 2.0), 0.0);
+    assert_eq!(source_exec(&source, 3.0), 1.0);
 }
 
 #[test]

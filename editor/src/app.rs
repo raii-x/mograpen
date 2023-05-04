@@ -1,7 +1,11 @@
+use std::error::Error;
+
 use egui::{Key, KeyboardShortcut, Modifiers};
 use mogral::{
     ast::{self, ASTNode},
-    code_gen, exec, parse, parse_error_pos, MglContext, SourcePosConverter,
+    code_gen,
+    inkwell::{context::Context, module::Module, OptimizationLevel},
+    parse, parse_error_pos, SourcePosConverter,
 };
 use strum_macros::{Display, EnumString, IntoStaticStr};
 
@@ -203,7 +207,7 @@ impl AppContext {
 
         // コード生成
 
-        let context = MglContext::new();
+        let context = Context::create();
         let module = match code_gen(&context, ast, self.optimize) {
             Ok(module) => module,
             Err(e) => {
@@ -220,7 +224,7 @@ impl AppContext {
 
         // 実行
 
-        let exec_result = match exec(&module, 0.0) {
+        let exec_result = match self.execute_inner(&module) {
             Ok(result) => result,
             Err(e) => {
                 self.error = e.to_string();
@@ -228,6 +232,15 @@ impl AppContext {
             }
         };
         self.exec_result = exec_result.node_to_string();
+    }
+
+    fn execute_inner(&mut self, module: &Module<'_>) -> Result<f64, Box<dyn Error>> {
+        let exec_engine = module.create_jit_execution_engine(OptimizationLevel::Default)?;
+
+        unsafe {
+            let func = exec_engine.get_function::<unsafe extern "C" fn(f64) -> f64>("main")?;
+            Ok(func.call(1.0))
+        }
     }
 }
 
