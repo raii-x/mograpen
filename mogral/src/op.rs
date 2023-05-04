@@ -24,6 +24,10 @@ pub enum BinOp {
     Mul,
     #[strum(serialize = "/")]
     Div,
+    #[strum(serialize = "&&")]
+    LogAnd,
+    #[strum(serialize = "||")]
+    LogOr,
 }
 
 impl Display for BinOp {
