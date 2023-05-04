@@ -22,14 +22,14 @@ fn code_gen_fail(source: &str) -> ((usize, usize), (usize, usize), CodeGenError)
 fn assign_mismatched_types_double_unit() {
     let source = r#"
 fn main() {
-    x = ();
+    x: double = ();
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
-            (3, 9),
-            (3, 11),
+            (3, 17),
+            (3, 19),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Unit
@@ -42,14 +42,14 @@ fn main() {
 fn assign_mismatched_types_double_bool() {
     let source = r#"
 fn main() {
-    x = true;
+    x: double = true;
 }
 "#;
     assert_eq!(
         code_gen_fail(source),
         (
-            (3, 9),
-            (3, 13),
+            (3, 17),
+            (3, 21),
             MismatchedTypes {
                 expected: MglType::Double,
                 found: MglType::Bool
