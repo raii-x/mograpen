@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use crate::ast;
 use crate::pos::{Span, Spanned};
-use crate::op::{BinOp, UnOp};
+use crate::op::{BinOp, LazyBinOp, UnOp};
 use crate::types::MglType;
 
 grammar;
@@ -57,7 +57,9 @@ Return:                                     Box<ast::Expr> = {
     "return" <Expr>,
 };
 
-BinOpExpr = Tier<CompOp, AddExpr>;
+BinOpExpr = LazyTier<LogOrOp, LogAndExpr>;
+LogAndExpr = LazyTier<LogAndOp, CompExpr>;
+CompExpr = Tier<CompOp, AddExpr>;
 AddExpr = Tier<AddOp, MulExpr>;
 MulExpr = Tier<MulOp, UnOpExpr>;
 
@@ -137,6 +139,13 @@ MulOp:                                      BinOp = {
     "/"                                         => BinOp::Div,
 };
 
+LogAndOp:                                   LazyBinOp = {
+    "&&"                                        => LazyBinOp::And
+}; 
+LogOrOp:                                    LazyBinOp = {
+    "||"                                        => LazyBinOp::Or
+};
+
 UnOp:                                       UnOp = {
     "-"                                         => UnOp::Neg,
     "!"                                         => UnOp::Not,
@@ -191,6 +200,12 @@ Comma<T>:                                   Vec<T> = {
 Tier<BinOp, NextTier>:                      Box<ast::Expr> = {
     <l:Sp<Tier<BinOp, NextTier>>>
         <o:Sp<BinOp>> <r:Sp<NextTier>>          => Box::new(ast::Expr::BinOp(ast::BinOpExpr { lhs: l, op: o, rhs: r })),
+    NextTier
+};
+
+LazyTier<BinOp, NextTier>:                  Box<ast::Expr> = {
+    <l:Sp<LazyTier<BinOp, NextTier>>>
+        <o:Sp<BinOp>> <r:Sp<NextTier>>          => Box::new(ast::Expr::LazyBinOp(ast::LazyBinOpExpr { lhs: l, op: o, rhs: r })),
     NextTier
 };
 

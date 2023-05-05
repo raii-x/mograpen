@@ -197,6 +197,58 @@ fn main() { return 0; }
 }
 
 #[test]
+fn mismatched_types_lazy_binary_lhs() {
+    for op in [LazyBinOp::And, LazyBinOp::Or] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    x = 0 {} true;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10),
+                MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: MglType::Double
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn mismatched_types_lazy_binary_rhs() {
+    for op in [LazyBinOp::And, LazyBinOp::Or] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    x = true {} 0;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 15 + op_str.len()),
+                (3, 16 + op_str.len()),
+                MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: MglType::Double
+                }
+            )
+        );
+    }
+}
+
+#[test]
 fn invalid_binary_operand_types_double_unit() {
     for op in [
         BinOp::Lt,
@@ -209,8 +261,6 @@ fn invalid_binary_operand_types_double_unit() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
-        BinOp::LogAnd,
-        BinOp::LogOr,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -249,8 +299,6 @@ fn invalid_binary_operand_types_double_bool() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
-        BinOp::LogAnd,
-        BinOp::LogOr,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -270,33 +318,6 @@ fn main() {{
                     op,
                     lhs: MglType::Double,
                     rhs: MglType::Bool
-                }
-            )
-        );
-    }
-}
-
-#[test]
-fn invalid_binary_operand_types_logical_double() {
-    for op in [BinOp::LogAnd, BinOp::LogOr] {
-        let op_str: &str = op.into();
-        let source = format!(
-            r#"
-fn main() {{
-    x = 0 {} 0;
-}}
-"#,
-            op_str
-        );
-        assert_eq!(
-            code_gen_fail(&source),
-            (
-                (3, 9),
-                (3, 13 + op_str.len()),
-                InvalidBinaryOperandTypes {
-                    op,
-                    lhs: MglType::Double,
-                    rhs: MglType::Double
                 }
             )
         );

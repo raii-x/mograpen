@@ -1,4 +1,5 @@
 use inkwell::{
+    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     types::{BasicType, BasicTypeEnum},
@@ -9,7 +10,7 @@ use inkwell::{
 use crate::{
     pos::{Span, Spanned},
     types::MglType,
-    BinOp, UnOp,
+    BinOp, LazyBinOp, UnOp,
 };
 
 use super::error::CodeGenError;
@@ -246,7 +247,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     ) -> Result<MglValue<'ctx>, CodeGenError> {
         if lhs.type_ != rhs.type_ {
             return Err(CodeGenError::InvalidBinaryOperandTypes {
-                op: op.clone(),
+                op,
                 lhs: lhs.type_,
                 rhs: rhs.type_,
             });
@@ -359,6 +360,104 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
             lhs: lhs.type_,
             rhs: rhs.type_,
         })
+    }
+
+    /// 遅延評価を行う二項演算命令を作成する
+    pub fn build_lazy_bin_op(
+        &self,
+        func: FunctionValue<'ctx>,
+        op: LazyBinOp,
+        lhs: Spanned<Option<MglValue<'ctx>>>,
+        lhs_bb: BasicBlock<'ctx>,
+        rhs: Spanned<Option<MglValue<'ctx>>>,
+        rhs_bb_begin: BasicBlock<'ctx>,
+        rhs_bb_end: BasicBlock<'ctx>,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
+        // ======================================== lhs_bbの処理
+
+        // 左辺の基本ブロックから挿入開始
+        self.builder.position_at_end(lhs_bb);
+
+        let lhs_v = match lhs.item {
+            Some(v) => v,
+            None => {
+                // 左辺でreturnする場合は右辺を評価しない
+                return Ok(None);
+            }
+        };
+
+        // 左辺がboolでなければエラー
+        if lhs_v.type_ != MglType::Bool {
+            return Err(Spanned::new(
+                CodeGenError::MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: lhs_v.type_,
+                },
+                lhs.span,
+            ));
+        }
+
+        // 演算を評価した値を格納する変数
+        let eval_var = self.create_variable(func, MglType::Bool, "lazy_bin_value");
+
+        // 変数に左辺の結果を格納
+        self.builder
+            .build_store(eval_var.alloca.unwrap(), lhs_v.value.unwrap());
+
+        // 合流用の基本ブロックを作成
+        let merge_bb = self.context.append_basic_block(func, "lazy_bin_merge");
+
+        // 分岐を作成
+        match op {
+            LazyBinOp::And => {
+                self.builder.build_conditional_branch(
+                    lhs_v.value.unwrap().into_int_value(),
+                    rhs_bb_begin,
+                    merge_bb,
+                );
+            }
+            LazyBinOp::Or => {
+                self.builder.build_conditional_branch(
+                    lhs_v.value.unwrap().into_int_value(),
+                    merge_bb,
+                    rhs_bb_begin,
+                );
+            }
+        }
+
+        // ======================================== rhs_bb_endの処理
+
+        // 右辺の基本ブロックから挿入開始
+        self.builder.position_at_end(rhs_bb_end);
+
+        // 右辺でreturnしない場合
+        if let Some(rhs_v) = rhs.item {
+            // 右辺がboolでなければエラー
+            if rhs_v.type_ != MglType::Bool {
+                return Err(Spanned::new(
+                    CodeGenError::MismatchedTypes {
+                        expected: MglType::Bool,
+                        found: rhs_v.type_,
+                    },
+                    rhs.span,
+                ));
+            }
+
+            // 変数に左辺の結果を格納
+            self.builder
+                .build_store(eval_var.alloca.unwrap(), rhs_v.value.unwrap());
+
+            // 合流用の基本ブロックにジャンプ
+            self.builder.build_unconditional_branch(merge_bb);
+        }
+
+        // ======================================== merge_bbの処理
+
+        // 合流用の基本ブロックから挿入開始
+        self.builder.position_at_end(merge_bb);
+
+        // 変数から評価した値を読み出して返す
+        Ok(Some(self.build_load(eval_var)))
     }
 
     /// 単項演算命令を作成する

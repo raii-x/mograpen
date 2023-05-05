@@ -11,9 +11,9 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 use crate::ast;
-use crate::op::BinOp;
 use crate::pos::Spanned as Sp;
 use crate::types::MglType;
+use crate::BinOp;
 
 use self::error::CodeGenError;
 use self::value::{MglFunction, MglValue, MglValueBuilder, MglVariable};
@@ -330,6 +330,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             ast::Expr::Set(x) => self.gen_set(Sp::new(x, span)),
             ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
             ast::Expr::BinOp(x) => self.gen_bin_op_expr(Sp::new(x, span)),
+            ast::Expr::LazyBinOp(x) => self.gen_lazy_bin_op_expr(Sp::new(x, span)),
             ast::Expr::UnOp(x) => self.gen_un_op_expr(Sp::new(x, span)),
             ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
             ast::Expr::Ident(s) => {
@@ -386,10 +387,43 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
+        // TODO: 左辺がreturnする場合に右辺を評価しないようにする
         let lhs = self.gen_expr(item.lhs.as_ref())?;
         let rhs = self.gen_expr(item.rhs.as_ref())?;
         self.value_builder
             .build_bin_op(item.op.item, lhs, rhs, span)
+    }
+
+    fn gen_lazy_bin_op_expr(
+        &mut self,
+        ast: Sp<&ast::LazyBinOpExpr>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        let func = self.current_fn.as_ref().unwrap().value;
+
+        // 左辺のコード生成
+        let lhs = self.gen_expr(item.lhs.as_ref())?;
+        let lhs_bb = self.builder.get_insert_block().unwrap();
+
+        // 右辺用の基本ブロックを作成
+        let rhs_bb_begin = self.context.append_basic_block(func, "lazy_bin_rhs");
+        self.builder.position_at_end(rhs_bb_begin);
+
+        // 右辺のコード生成
+        let rhs = self.gen_expr(item.rhs.as_ref())?;
+        let rhs_bb_end = self.builder.get_insert_block().unwrap();
+
+        // 演算子のコード生成
+        self.value_builder.build_lazy_bin_op(
+            func,
+            item.op.item,
+            Sp::new(lhs, ast.item.lhs.span),
+            lhs_bb,
+            Sp::new(rhs, ast.item.rhs.span),
+            rhs_bb_begin,
+            rhs_bb_end,
+        )
     }
 
     fn gen_un_op_expr(
