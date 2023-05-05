@@ -11,7 +11,7 @@ mod types;
 pub use code_gen::code_gen;
 pub use code_gen::error::CodeGenError;
 pub use inkwell;
-pub use op::{BinOp, UnOp};
+pub use op::{BinOp, LazyBinOp, UnOp};
 pub use parser::error::parse_error_pos;
 pub use parser::parse;
 pub use pos::{SourcePosConverter, Span, Spanned};

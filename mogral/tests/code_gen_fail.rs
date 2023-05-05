@@ -197,7 +197,59 @@ fn main() { return 0; }
 }
 
 #[test]
-fn invalid_operand_types_double_unit() {
+fn mismatched_types_lazy_binary_lhs() {
+    for op in [LazyBinOp::And, LazyBinOp::Or] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    x = 0 {} true;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 9),
+                (3, 10),
+                MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: MglType::Double
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn mismatched_types_lazy_binary_rhs() {
+    for op in [LazyBinOp::And, LazyBinOp::Or] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    x = true {} 0;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (3, 15 + op_str.len()),
+                (3, 16 + op_str.len()),
+                MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: MglType::Double
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_double_unit() {
     for op in [
         BinOp::Lt,
         BinOp::Gt,

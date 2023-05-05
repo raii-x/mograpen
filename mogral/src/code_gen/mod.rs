@@ -11,9 +11,9 @@ use inkwell::types::{BasicMetadataTypeEnum, BasicType};
 use inkwell::values::FunctionValue;
 
 use crate::ast;
-use crate::op::BinOp;
 use crate::pos::Spanned as Sp;
 use crate::types::MglType;
+use crate::BinOp;
 
 use self::error::CodeGenError;
 use self::value::{MglFunction, MglValue, MglValueBuilder, MglVariable};
@@ -23,9 +23,9 @@ struct CodeGen<'ctx, 'a> {
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
     fpm: Option<PassManager<FunctionValue<'ctx>>>,
+    value_builder: &'a MglValueBuilder<'ctx, 'a>,
     functions: HashMap<String, MglFunction<'ctx>>,
     variables: HashMap<String, MglVariable<'ctx>>,
-    value_builder: MglValueBuilder<'ctx, 'a>,
     current_fn: Option<MglFunction<'ctx>>,
 }
 
@@ -35,6 +35,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
         optimize: bool,
+        value_builder: &'a MglValueBuilder<'ctx, 'a>,
     ) -> Self {
         let fpm = if optimize {
             // 最適化を行う場合はFPMを作成
@@ -60,9 +61,9 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             module,
             builder,
             fpm,
+            value_builder,
             functions: HashMap::new(),
             variables: HashMap::new(),
-            value_builder: MglValueBuilder { context, builder },
             current_fn: None,
         }
     }
@@ -330,6 +331,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             ast::Expr::Set(x) => self.gen_set(Sp::new(x, span)),
             ast::Expr::Return(x) => self.gen_return(Sp::new(x, span)),
             ast::Expr::BinOp(x) => self.gen_bin_op_expr(Sp::new(x, span)),
+            ast::Expr::LazyBinOp(x) => self.gen_lazy_bin_op_expr(Sp::new(x, span)),
             ast::Expr::UnOp(x) => self.gen_un_op_expr(Sp::new(x, span)),
             ast::Expr::Literal(x) => self.gen_literal(Sp::new(x, span)),
             ast::Expr::Ident(s) => {
@@ -387,9 +389,41 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let Sp { item, span } = ast;
 
         let lhs = self.gen_expr(item.lhs.as_ref())?;
+        let lhs = match lhs {
+            Some(v) => v,
+            // 左辺でreturnする場合は右辺を評価しない
+            None => return Ok(None),
+        };
+
         let rhs = self.gen_expr(item.rhs.as_ref())?;
+        let rhs = match rhs {
+            Some(v) => v,
+            // 右辺でreturnする場合は演算を行わない
+            None => return Ok(None),
+        };
+
         self.value_builder
             .build_bin_op(item.op.item, lhs, rhs, span)
+    }
+
+    fn gen_lazy_bin_op_expr(
+        &mut self,
+        ast: Sp<&ast::LazyBinOpExpr>,
+    ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
+        let Sp { item, span: _ } = ast;
+
+        let func = self.current_fn.as_ref().unwrap().value;
+
+        // 左辺のコード生成
+        let lhs = self.gen_expr(item.lhs.as_ref())?;
+
+        // 演算子のコード生成
+        self.value_builder.build_lazy_bin_op(
+            func,
+            item.op.item,
+            Sp::new(lhs, ast.item.lhs.span),
+            || Ok(Sp::new(self.gen_expr(item.rhs.as_ref())?, item.rhs.span)),
+        )
     }
 
     fn gen_un_op_expr(
@@ -665,7 +699,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         let end_cond = self
             .value_builder
-            .build_bin_op(BinOp::Lt, Some(index_val), Some(until_val), span)?
+            .build_bin_op(BinOp::Lt, index_val, until_val, span)?
             .unwrap();
 
         let body_bb = self.context.append_basic_block(parent, "loop_body");
@@ -691,12 +725,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // インクリメントしてストア
         let next_index_val = self
             .value_builder
-            .build_bin_op(
-                BinOp::Add,
-                Some(index_val),
-                Some(self.value_builder.double(1.0)),
-                span,
-            )?
+            .build_bin_op(BinOp::Add, index_val, self.value_builder.double(1.0), span)?
             .unwrap();
         self.value_builder
             .build_store(index_var, Sp::new(next_index_val, item.var_name.span))?;
@@ -725,7 +754,11 @@ pub fn code_gen<'ctx>(
 ) -> Result<Module<'ctx>, Sp<CodeGenError>> {
     let module = context.create_module("mogral");
     let builder = context.create_builder();
-    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize);
+    let value_builder = MglValueBuilder {
+        context,
+        builder: &builder,
+    };
+    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize, &value_builder);
     code_gen.gen_module(&ast)?;
 
     Ok(module)

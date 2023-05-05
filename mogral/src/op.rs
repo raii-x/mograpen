@@ -28,8 +28,21 @@ pub enum BinOp {
 
 impl Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s: &str = self.into();
-        write!(f, "{}", s)
+        write!(f, "{}", <&str>::from(self))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, IntoStaticStr)]
+pub enum LazyBinOp {
+    #[strum(serialize = "&&")]
+    And,
+    #[strum(serialize = "||")]
+    Or,
+}
+
+impl Display for LazyBinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", <&str>::from(self))
     }
 }
 
@@ -43,7 +56,6 @@ pub enum UnOp {
 
 impl Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s: &str = self.into();
-        write!(f, "{}", s)
+        write!(f, "{}", <&str>::from(self))
     }
 }
