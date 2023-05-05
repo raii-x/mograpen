@@ -388,9 +388,20 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<Option<MglValue<'ctx>>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
-        // TODO: 左辺がreturnする場合に右辺を評価しないようにする
         let lhs = self.gen_expr(item.lhs.as_ref())?;
+        let lhs = match lhs {
+            Some(v) => v,
+            // 左辺でreturnする場合は右辺を評価しない
+            None => return Ok(None),
+        };
+
         let rhs = self.gen_expr(item.rhs.as_ref())?;
+        let rhs = match rhs {
+            Some(v) => v,
+            // 右辺でreturnする場合は演算を行わない
+            None => return Ok(None),
+        };
+
         self.value_builder
             .build_bin_op(item.op.item, lhs, rhs, span)
     }
@@ -688,7 +699,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         let end_cond = self
             .value_builder
-            .build_bin_op(BinOp::Lt, Some(index_val), Some(until_val), span)?
+            .build_bin_op(BinOp::Lt, index_val, until_val, span)?
             .unwrap();
 
         let body_bb = self.context.append_basic_block(parent, "loop_body");
@@ -714,12 +725,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // インクリメントしてストア
         let next_index_val = self
             .value_builder
-            .build_bin_op(
-                BinOp::Add,
-                Some(index_val),
-                Some(self.value_builder.double(1.0)),
-                span,
-            )?
+            .build_bin_op(BinOp::Add, index_val, self.value_builder.double(1.0), span)?
             .unwrap();
         self.value_builder
             .build_store(index_var, Sp::new(next_index_val, item.var_name.span))?;

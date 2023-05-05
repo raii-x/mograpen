@@ -225,34 +225,23 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     pub fn build_bin_op(
         &self,
         op: BinOp,
-        lhs: Option<MglValue<'ctx>>,
-        rhs: Option<MglValue<'ctx>>,
-        span: Span,
-    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
-        match (lhs, rhs) {
-            (Some(lhs), Some(rhs)) => self
-                .build_bin_op_inner(op, lhs, rhs)
-                .map(Some)
-                .map_err(|e| Spanned::new(e, span)),
-            _ => Ok(None),
-        }
-    }
-
-    fn build_bin_op_inner(
-        &self,
-        op: BinOp,
         lhs: MglValue<'ctx>,
         rhs: MglValue<'ctx>,
-    ) -> Result<MglValue<'ctx>, CodeGenError> {
+        span: Span,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
         if lhs.type_ != rhs.type_ {
-            return Err(CodeGenError::InvalidBinaryOperandTypes {
-                op,
-                lhs: lhs.type_,
-                rhs: rhs.type_,
-            });
+            return Err(Spanned::new(
+                CodeGenError::InvalidBinaryOperandTypes {
+                    op,
+                    lhs: lhs.type_,
+                    rhs: rhs.type_,
+                },
+                span,
+            ));
         }
 
-        match lhs.type_ {
+        // 被演算子の型が対応していなければNoneとしている
+        let val = match lhs.type_ {
             MglType::Double => {
                 let lhs_v = lhs.value.unwrap().into_float_value();
                 let rhs_v = rhs.value.unwrap().into_float_value();
@@ -353,12 +342,19 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 BinOp::Neq => Some(self.bool(false)),
                 _ => None,
             },
+        };
+
+        match val {
+            Some(v) => Ok(Some(v)),
+            None => Err(Spanned::new(
+                CodeGenError::InvalidBinaryOperandTypes {
+                    op,
+                    lhs: lhs.type_,
+                    rhs: rhs.type_,
+                },
+                span,
+            )),
         }
-        .ok_or(CodeGenError::InvalidBinaryOperandTypes {
-            op,
-            lhs: lhs.type_,
-            rhs: rhs.type_,
-        })
     }
 
     /// 遅延評価を行う二項演算命令を作成する
@@ -376,10 +372,8 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
 
         let lhs_v = match lhs.item {
             Some(v) => v,
-            None => {
-                // 左辺でreturnする場合は右辺を評価しない
-                return Ok(None);
-            }
+            // 左辺でreturnする場合は右辺を評価しない
+            None => return Ok(None),
         };
 
         // 左辺がboolでなければエラー
