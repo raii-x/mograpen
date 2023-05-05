@@ -313,7 +313,7 @@ fn main(x: double): double {
 fn logical_lhs_return() {
     let source = r#"
 fn main(x: double): double {
-    if ({ return 2; true }) && x == 1 { return 3; }
+    if (return 2) && x == 1 { return 3; }
     return 4;
 }
 "#;
@@ -325,7 +325,7 @@ fn main(x: double): double {
 fn logical_rhs_return() {
     let source = r#"
 fn main(x: double): double {
-    if x == 1 && ({ return 2; true }) { return 3; }
+    if x == 1 && (return 2) { return 3; }
     return 4;
 }
 "#;
@@ -337,7 +337,7 @@ fn main(x: double): double {
 fn logical_both_hs_return() {
     let source = r#"
 fn main(x: double): double {
-    if ({ return 1; true }) && ({ return 2; true }) { return 3; }
+    if (return 1) && (return 2) { return 3; }
     return 4;
 }
 "#;
