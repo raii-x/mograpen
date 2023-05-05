@@ -280,6 +280,41 @@ fn main(x: double): double {
 }
 
 #[test]
+fn logical_lhs_return() {
+    let source = r#"
+fn main(x: double): double {
+    if ({ return 2; true }) && x == 1 { return 3; }
+    return 4;
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 2.0);
+    assert_eq!(source_exec(&source, 1.0), 2.0);
+}
+
+#[test]
+fn logical_rhs_return() {
+    let source = r#"
+fn main(x: double): double {
+    if x == 1 && ({ return 2; true }) { return 3; }
+    return 4;
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 4.0);
+    assert_eq!(source_exec(&source, 1.0), 2.0);
+}
+
+#[test]
+fn logical_both_hs_return() {
+    let source = r#"
+fn main(x: double): double {
+    if ({ return 1; true }) && ({ return 2; true }) { return 3; }
+    return 4;
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 1.0);
+}
+
+#[test]
 fn neg() {
     let source = r#"
 fn main(x: double): double {
