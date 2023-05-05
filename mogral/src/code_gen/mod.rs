@@ -23,9 +23,9 @@ struct CodeGen<'ctx, 'a> {
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
     fpm: Option<PassManager<FunctionValue<'ctx>>>,
+    value_builder: &'a MglValueBuilder<'ctx, 'a>,
     functions: HashMap<String, MglFunction<'ctx>>,
     variables: HashMap<String, MglVariable<'ctx>>,
-    value_builder: MglValueBuilder<'ctx, 'a>,
     current_fn: Option<MglFunction<'ctx>>,
 }
 
@@ -35,6 +35,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
         optimize: bool,
+        value_builder: &'a MglValueBuilder<'ctx, 'a>,
     ) -> Self {
         let fpm = if optimize {
             // 最適化を行う場合はFPMを作成
@@ -60,9 +61,9 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             module,
             builder,
             fpm,
+            value_builder,
             functions: HashMap::new(),
             variables: HashMap::new(),
-            value_builder: MglValueBuilder { context, builder },
             current_fn: None,
         }
     }
@@ -404,25 +405,13 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 左辺のコード生成
         let lhs = self.gen_expr(item.lhs.as_ref())?;
-        let lhs_bb = self.builder.get_insert_block().unwrap();
-
-        // 右辺用の基本ブロックを作成
-        let rhs_bb_begin = self.context.append_basic_block(func, "lazy_bin_rhs");
-        self.builder.position_at_end(rhs_bb_begin);
-
-        // 右辺のコード生成
-        let rhs = self.gen_expr(item.rhs.as_ref())?;
-        let rhs_bb_end = self.builder.get_insert_block().unwrap();
 
         // 演算子のコード生成
         self.value_builder.build_lazy_bin_op(
             func,
             item.op.item,
             Sp::new(lhs, ast.item.lhs.span),
-            lhs_bb,
-            Sp::new(rhs, ast.item.rhs.span),
-            rhs_bb_begin,
-            rhs_bb_end,
+            || Ok(Sp::new(self.gen_expr(item.rhs.as_ref())?, item.rhs.span)),
         )
     }
 
@@ -759,7 +748,11 @@ pub fn code_gen<'ctx>(
 ) -> Result<Module<'ctx>, Sp<CodeGenError>> {
     let module = context.create_module("mogral");
     let builder = context.create_builder();
-    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize);
+    let value_builder = MglValueBuilder {
+        context,
+        builder: &builder,
+    };
+    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize, &value_builder);
     code_gen.gen_module(&ast)?;
 
     Ok(module)

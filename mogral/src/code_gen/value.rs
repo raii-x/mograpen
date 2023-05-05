@@ -363,20 +363,17 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
     }
 
     /// 遅延評価を行う二項演算命令を作成する
-    pub fn build_lazy_bin_op(
+    pub fn build_lazy_bin_op<F>(
         &self,
         func: FunctionValue<'ctx>,
         op: LazyBinOp,
         lhs: Spanned<Option<MglValue<'ctx>>>,
-        lhs_bb: BasicBlock<'ctx>,
-        rhs: Spanned<Option<MglValue<'ctx>>>,
-        rhs_bb_begin: BasicBlock<'ctx>,
-        rhs_bb_end: BasicBlock<'ctx>,
-    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>> {
-        // ======================================== lhs_bbの処理
-
-        // 左辺の基本ブロックから挿入開始
-        self.builder.position_at_end(lhs_bb);
+        gen_rhs: F,
+    ) -> Result<Option<MglValue<'ctx>>, Spanned<CodeGenError>>
+    where
+        F: FnOnce() -> Result<Spanned<Option<MglValue<'ctx>>>, Spanned<CodeGenError>>,
+    {
+        // ======================================== 左辺の基本ブロックの処理
 
         let lhs_v = match lhs.item {
             Some(v) => v,
@@ -404,7 +401,8 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
         self.builder
             .build_store(eval_var.alloca.unwrap(), lhs_v.value.unwrap());
 
-        // 合流用の基本ブロックを作成
+        // 基本ブロックを作成
+        let rhs_bb = self.context.append_basic_block(func, "lazy_bin_rhs");
         let merge_bb = self.context.append_basic_block(func, "lazy_bin_merge");
 
         // 分岐を作成
@@ -412,7 +410,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
             LazyBinOp::And => {
                 self.builder.build_conditional_branch(
                     lhs_v.value.unwrap().into_int_value(),
-                    rhs_bb_begin,
+                    rhs_bb,
                     merge_bb,
                 );
             }
@@ -420,15 +418,18 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 self.builder.build_conditional_branch(
                     lhs_v.value.unwrap().into_int_value(),
                     merge_bb,
-                    rhs_bb_begin,
+                    rhs_bb,
                 );
             }
         }
 
-        // ======================================== rhs_bb_endの処理
+        // ======================================== rhs_bbの処理
 
         // 右辺の基本ブロックから挿入開始
-        self.builder.position_at_end(rhs_bb_end);
+        self.builder.position_at_end(rhs_bb);
+
+        // 右辺のコード生成
+        let rhs = gen_rhs()?;
 
         // 右辺でreturnしない場合
         if let Some(rhs_v) = rhs.item {
@@ -443,7 +444,7 @@ impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
                 ));
             }
 
-            // 変数に左辺の結果を格納
+            // 変数に右辺の結果を格納
             self.builder
                 .build_store(eval_var.alloca.unwrap(), rhs_v.value.unwrap());
 
