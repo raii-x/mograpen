@@ -260,7 +260,7 @@ fn main() {
 }"#;
     assert_eq!(
         code_gen_fail(source),
-        ((3, 5), (3, 12), NonIndexableType(MglType::Double))
+        ((4, 5), (4, 12), NonIndexableType(MglType::Double))
     );
 }
 
@@ -416,11 +416,17 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (5, 9),
-                (3, 13 + op_str.len()),
+                (5, 13 + op_str.len()),
                 InvalidBinaryOperandTypes {
                     op,
-                    lhs: MglType::Array(Box::new(MglType::Double), 1),
-                    rhs: MglType::Array(Box::new(MglType::Double), 1)
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    }
                 }
             )
         );
@@ -455,11 +461,17 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (5, 9),
-                (3, 13 + op_str.len()),
+                (5, 13 + op_str.len()),
                 InvalidBinaryOperandTypes {
                     op,
-                    lhs: MglType::Array(Box::new(MglType::Double), 1),
-                    rhs: MglType::Array(Box::new(MglType::Bool), 1)
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Bool),
+                        size: 1
+                    }
                 }
             )
         );
@@ -494,11 +506,17 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (5, 9),
-                (3, 13 + op_str.len()),
+                (5, 13 + op_str.len()),
                 InvalidBinaryOperandTypes {
                     op,
-                    lhs: MglType::Array(Box::new(MglType::Double), 1),
-                    rhs: MglType::Array(Box::new(MglType::Double), 2)
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 2
+                    }
                 }
             )
         );
