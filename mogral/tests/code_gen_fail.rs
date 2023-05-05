@@ -249,6 +249,61 @@ fn main() {{
 }
 
 #[test]
+fn non_indexable_type() {
+    let source = r#"
+fn main() {
+    0[0];
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((3, 5), (3, 9), NonIndexableType(MglType::Double))
+    );
+}
+
+#[test]
+fn non_indexable_type_multidimensional() {
+    let source = r#"
+fn main() {
+    a: [double; 1];
+    a[0][0];
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((3, 5), (3, 12), NonIndexableType(MglType::Double))
+    );
+}
+
+#[test]
+fn invalid_index_type() {
+    let source = r#"
+fn main() {
+    a: [double; 1];
+    a[true];
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((4, 7), (4, 11), InvalidIndexType(MglType::Bool))
+    );
+}
+
+#[test]
+fn invalid_index_type_multidimensional() {
+    let source = r#"
+fn main() {
+    a: [[double; 1]; 1];
+    a[0][true];
+}
+"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((4, 10), (4, 14), InvalidIndexType(MglType::Bool))
+    );
+}
+
+#[test]
 fn invalid_binary_operand_types_double_unit() {
     for op in [
         BinOp::Lt,
@@ -354,6 +409,115 @@ fn main() {{
                     op,
                     lhs: MglType::Bool,
                     rhs: MglType::Bool
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_arith_array() {
+    for op in [BinOp::Add, BinOp::Sub, BinOp::Mul, BinOp::Div] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [double; 1];
+    x = a {} b;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (3, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array(Box::new(MglType::Double), 1),
+                    rhs: MglType::Array(Box::new(MglType::Double), 1)
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_array_not_match_element_types() {
+    for op in [
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
+    ] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [bool; 1];
+    x = a {} b;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (3, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array(Box::new(MglType::Double), 1),
+                    rhs: MglType::Array(Box::new(MglType::Bool), 1)
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_array_not_match_element_numbers() {
+    for op in [
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
+    ] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [double; 2];
+    x = a {} b;
+}}
+"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (3, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array(Box::new(MglType::Double), 1),
+                    rhs: MglType::Array(Box::new(MglType::Double), 2)
                 }
             )
         );

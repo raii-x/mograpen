@@ -94,6 +94,23 @@ fn main(x: double): double {
 }
 
 #[test]
+fn array() {
+    let source = r#"
+fn main(x: double): double {
+    a: [double; 3];
+    set a[0] = 1;
+    set a[1] = 2;
+    set a[2] = 3;
+    a[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+    assert_eq!(source_exec(source, 2.0), 3.0);
+}
+
+// TODO: 配列同士の二項演算子のテスト
+
+#[test]
 fn early_return() {
     let source = r#"
 fn main(x: double): double {
