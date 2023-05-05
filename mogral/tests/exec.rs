@@ -183,6 +183,36 @@ fn main(x: double): double {{ 6 {} 2 }}
 }
 
 #[test]
+fn add_lhs_return() {
+    let source = r#"
+fn main(x: double): double {
+    (return 1) + x
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 1.0);
+}
+
+#[test]
+fn add_rhs_return() {
+    let source = r#"
+fn main(x: double): double {
+    x + (return 2)
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 2.0);
+}
+
+#[test]
+fn add_both_hs_return() {
+    let source = r#"
+fn main(x: double): double {
+    (return 1) + (return 2)
+}
+"#;
+    assert_eq!(source_exec(&source, 0.0), 1.0);
+}
+
+#[test]
 fn eq_neq_double() {
     let source = r#"
 fn main(x: double): double {
