@@ -108,6 +108,17 @@ fn main(x: double): double {
     assert_eq!(source_exec(source, 2.0), 3.0);
 }
 
+#[test]
+fn array_multidimensional() {
+    let source = r#"
+fn main(x: double): double {
+    a: [[double; 3]; 2];
+    set a[1][2] = 5;
+    a[1][2]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 5.0);
+}
+
 // TODO: 配列同士の二項演算子のテスト
 
 #[test]
