@@ -144,10 +144,26 @@ fn array_multidimensional() {
     let source = r#"
 fn main(x: double): double {
     a: [[double; 3]; 2];
-    set a[1][2] = 5;
-    a[1][2]
+    set a[0][1] = 1;
+    set a[1][2] = 2;
+    a[x][x + 1]
 }"#;
-    assert_eq!(source_exec(source, 0.0), 5.0);
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
+fn array_multidimensional_subarray() {
+    let source = r#"
+fn main(x: double): double {
+    a: [[double; 2]; 3];
+    set a[2][0] = 1;
+    set a[2][1] = 2;
+    b = a[2];
+    b[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
 }
 
 // TODO: 配列同士の二項演算子のテスト
