@@ -19,12 +19,12 @@ use super::{
 };
 
 /// Exprを扱う命令を作成するための構造体
-pub struct MglValueBuilder<'ctx, 'a> {
+pub struct MglBuilder<'ctx, 'a> {
     pub context: &'ctx Context,
     pub builder: &'a Builder<'ctx>,
 }
 
-impl<'ctx, 'a> MglValueBuilder<'ctx, 'a> {
+impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
     /// double型の定数値のValueExprを生成する
     pub fn double(&self, value: f64) -> ValueExpr<'ctx> {
         ValueExpr {
