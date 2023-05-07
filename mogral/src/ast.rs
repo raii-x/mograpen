@@ -84,8 +84,9 @@ ast_node_enum! {
 
 ast_node_struct! {
     Let;
-    var: Spanned<OptTypedIdent>,
-    val: Spanned<Box<Expr>>
+    name: Spanned<String>,
+    type_: Option<Spanned<MglType>>,
+    val: Option<Spanned<Box<Expr>>>
 }
 
 ast_node_enum! {
@@ -95,6 +96,7 @@ ast_node_enum! {
     BinOp(BinOpExpr),
     LazyBinOp(LazyBinOpExpr),
     UnOp(UnOpExpr),
+    Index(Index),
     Literal(Literal),
     Ident(String),
     FuncCall(FuncCall),
@@ -105,7 +107,7 @@ ast_node_enum! {
 
 ast_node_struct! {
     Set;
-    var_name: Spanned<String>,
+    var: Spanned<Box<Expr>>,
     val: Spanned<Box<Expr>>
 }
 
@@ -127,6 +129,12 @@ ast_node_struct! {
     UnOpExpr;
     op: Spanned<UnOp>,
     opnd: Spanned<Box<Expr>>
+}
+
+ast_node_struct! {
+    Index;
+    target: Spanned<Box<Expr>>,
+    index: Spanned<Box<Expr>>
 }
 
 ast_node_enum! {
@@ -167,12 +175,6 @@ ast_node_struct! {
     TypedIdent;
     ident: Spanned<String>,
     type_: Spanned<MglType>
-}
-
-ast_node_struct! {
-    OptTypedIdent;
-    ident: Spanned<String>,
-    type_: Option<Spanned<MglType>>
 }
 
 impl ASTNode for String {

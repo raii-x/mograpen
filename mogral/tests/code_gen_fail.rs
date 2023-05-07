@@ -24,8 +24,7 @@ fn let_mismatched_types_double_unit() {
     let source = r#"
 fn main() {
     x: double = ();
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -44,8 +43,7 @@ fn let_mismatched_types_double_bool() {
     let source = r#"
 fn main() {
     x: double = true;
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -64,8 +62,7 @@ fn set_mismatched_types() {
     let source = r#"
 fn main(x: bool) {
     set x = 0;
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -84,8 +81,7 @@ fn if_cond_mismatched_types() {
     let source = r#"
 fn main() {
     if 0 {};
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -104,8 +100,7 @@ fn if_mismatched_types_not_unit_then() {
     let source = r#"
 fn main() {
     if true { 0 };
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -124,8 +119,7 @@ fn if_else_mismatched_types() {
     let source = r#"
 fn main() {
     x = if true { 1 } else {};
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -145,8 +139,7 @@ fn func_call_mismatched_types() {
 fn f(x: double): double { x }
 fn main() {
     f(true);
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(source),
         (
@@ -204,8 +197,7 @@ fn mismatched_types_lazy_binary_lhs() {
             r#"
 fn main() {{
     x = 0 {} true;
-}}
-"#,
+}}"#,
             op_str
         );
         assert_eq!(
@@ -230,8 +222,7 @@ fn mismatched_types_lazy_binary_rhs() {
             r#"
 fn main() {{
     x = true {} 0;
-}}
-"#,
+}}"#,
             op_str
         );
         assert_eq!(
@@ -246,6 +237,57 @@ fn main() {{
             )
         );
     }
+}
+
+#[test]
+fn non_indexable_type() {
+    let source = r#"
+fn main() {
+    0[0];
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((3, 5), (3, 9), NonIndexableType(MglType::Double))
+    );
+}
+
+#[test]
+fn non_indexable_type_multidimensional() {
+    let source = r#"
+fn main() {
+    a: [double; 1];
+    a[0][0];
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((4, 5), (4, 12), NonIndexableType(MglType::Double))
+    );
+}
+
+#[test]
+fn invalid_index_type() {
+    let source = r#"
+fn main() {
+    a: [double; 1];
+    a[true];
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((4, 7), (4, 11), InvalidIndexType(MglType::Bool))
+    );
+}
+
+#[test]
+fn invalid_index_type_multidimensional() {
+    let source = r#"
+fn main() {
+    a: [[double; 1]; 1];
+    a[0][true];
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        ((4, 10), (4, 14), InvalidIndexType(MglType::Bool))
+    );
 }
 
 #[test]
@@ -267,8 +309,7 @@ fn invalid_binary_operand_types_double_unit() {
             r#"
 fn main() {{
     x = 0 {} ();
-}}
-"#,
+}}"#,
             op_str
         );
         assert_eq!(
@@ -305,8 +346,7 @@ fn invalid_binary_operand_types_double_bool() {
             r#"
 fn main() {{
     x = 0 {} true;
-}}
-"#,
+}}"#,
             op_str
         );
         assert_eq!(
@@ -341,8 +381,7 @@ fn invalid_binary_operand_types_ord_arith_bool() {
             r#"
 fn main() {{
     x = true {} true;
-}}
-"#,
+}}"#,
             op_str
         );
         assert_eq!(
@@ -361,14 +400,137 @@ fn main() {{
 }
 
 #[test]
+fn invalid_binary_operand_types_arith_array() {
+    for op in [BinOp::Add, BinOp::Sub, BinOp::Mul, BinOp::Div] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [double; 1];
+    x = a {} b;
+}}"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (5, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    }
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_array_not_match_element_types() {
+    for op in [
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
+    ] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [bool; 1];
+    x = a {} b;
+}}"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (5, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Bool),
+                        size: 1
+                    }
+                }
+            )
+        );
+    }
+}
+
+#[test]
+fn invalid_binary_operand_types_array_not_match_element_numbers() {
+    for op in [
+        BinOp::Lt,
+        BinOp::Gt,
+        BinOp::Leq,
+        BinOp::Geq,
+        BinOp::Eq,
+        BinOp::Neq,
+        BinOp::Add,
+        BinOp::Sub,
+        BinOp::Mul,
+        BinOp::Div,
+    ] {
+        let op_str: &str = op.into();
+        let source = format!(
+            r#"
+fn main() {{
+    a: [double; 1];
+    b: [double; 2];
+    x = a {} b;
+}}"#,
+            op_str
+        );
+        assert_eq!(
+            code_gen_fail(&source),
+            (
+                (5, 9),
+                (5, 13 + op_str.len()),
+                InvalidBinaryOperandTypes {
+                    op,
+                    lhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 1
+                    },
+                    rhs: MglType::Array {
+                        type_: Box::new(MglType::Double),
+                        size: 2
+                    }
+                }
+            )
+        );
+    }
+}
+
+#[test]
 fn invalid_unary_operand_type_neg() {
     for (operand, type_) in [("true", MglType::Bool), ("()", MglType::Unit)] {
         let source = format!(
             r#"
 fn main() {{
     x = -{};
-}}
-"#,
+}}"#,
             operand
         );
         assert_eq!(
@@ -392,8 +554,7 @@ fn invalid_unary_operand_type_not() {
             r#"
 fn main() {{
     x = !{};
-}}
-"#,
+}}"#,
             operand
         );
         assert_eq!(
@@ -415,8 +576,7 @@ fn unresolved_name_variable_ref() {
     let source = r#"
 fn main(): double {
     x
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(&source),
         ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
@@ -428,8 +588,7 @@ fn unresolved_name_variable_set() {
     let source = r#"
 fn main() {
     set x = 0;
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(&source),
         ((3, 9), (3, 10), UnresolvedName("x".to_owned()))
@@ -441,8 +600,7 @@ fn unresolved_name_func_call() {
     let source = r#"
 fn main() {
     x();
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(&source),
         ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
@@ -468,8 +626,7 @@ fn variable_already_exists() {
 fn main() {
     x = 0;
     x = 1;
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(&source),
         ((4, 5), (4, 6), VariableAlreadyExists("x".to_owned()))
@@ -482,8 +639,7 @@ fn invalid_number_of_arguments() {
 fn f(x: double): double { x }
 fn main() {
     f(0, 1);
-}
-"#;
+}"#;
     assert_eq!(
         code_gen_fail(&source),
         (

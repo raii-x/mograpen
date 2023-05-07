@@ -3,7 +3,7 @@ use std::fmt::Display;
 use strum_macros::IntoStaticStr;
 
 /// MograLで使用する型
-#[derive(Debug, PartialEq, Eq, Clone, Copy, IntoStaticStr)]
+#[derive(Debug, PartialEq, Eq, Clone, IntoStaticStr)]
 pub enum MglType {
     #[strum(serialize = "()")]
     Unit,
@@ -11,6 +11,8 @@ pub enum MglType {
     Double,
     #[strum(serialize = "bool")]
     Bool,
+    #[strum(serialize = "array")]
+    Array { type_: Box<MglType>, size: usize },
 }
 
 impl Display for MglType {

@@ -94,6 +94,81 @@ fn main(x: double): double {
 }
 
 #[test]
+fn array() {
+    let source = r#"
+fn main(x: double): double {
+    a: [double; 3];
+    set a[0] = 1;
+    set a[1] = 2;
+    set a[2] = 3;
+    a[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+    assert_eq!(source_exec(source, 2.0), 3.0);
+}
+
+#[test]
+fn array_copy() {
+    let source = r#"
+fn main(x: double): double {
+    a: [double; 2];
+    set a[0] = 1;
+    set a[1] = 2;
+    b = a;
+    b[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
+fn array_return() {
+    let source = r#"
+fn sub(): [double; 2] {
+    a: [double; 2];
+    set a[0] = 1;
+    set a[1] = 2;
+    a
+}
+fn main(x: double): double {
+    a = sub();
+    a[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
+fn array_multidimensional() {
+    let source = r#"
+fn main(x: double): double {
+    a: [[double; 3]; 2];
+    set a[0][1] = 1;
+    set a[1][2] = 2;
+    a[x][x + 1]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
+fn array_multidimensional_subarray() {
+    let source = r#"
+fn main(x: double): double {
+    a: [[double; 2]; 3];
+    set a[2][0] = 1;
+    set a[2][1] = 2;
+    b = a[2];
+    b[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+// TODO: 配列同士の二項演算子のテスト
+
+#[test]
 fn early_return() {
     let source = r#"
 fn main(x: double): double {
@@ -187,8 +262,7 @@ fn add_lhs_return() {
     let source = r#"
 fn main(x: double): double {
     (return 1) + x
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 1.0);
 }
 
@@ -197,8 +271,7 @@ fn add_rhs_return() {
     let source = r#"
 fn main(x: double): double {
     x + (return 2)
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 2.0);
 }
 
@@ -207,8 +280,7 @@ fn add_both_hs_return() {
     let source = r#"
 fn main(x: double): double {
     (return 1) + (return 2)
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 1.0);
 }
 
@@ -221,8 +293,7 @@ fn main(x: double): double {
 	if 3 != 3 { return 1; }
 	if 3 != 4 {} else { return 1; }
 	0
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
 
@@ -235,8 +306,7 @@ fn main(x: double): double {
 	if true != true { return 1; }
 	if true != false {} else { return 1; }
 	0
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
 
@@ -247,8 +317,7 @@ fn main(x: double): double {
 	if () == () {} else { return 1; }
 	if () != () { return 1; }
 	0
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
 
@@ -265,8 +334,7 @@ fn main(x: double): double {
 	if 3 <= 4 {} else { return 1; }
 	if 3 >= 4 { return 1; }
 	0
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
 
@@ -275,8 +343,7 @@ fn logical_and() {
     let source = r#"
 fn main(x: double): double {
     if x >= 2 && (x != 0 && x != 2) { 1 } else { 0 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 1.0), 0.0);
     assert_eq!(source_exec(&source, 2.0), 0.0);
@@ -288,8 +355,7 @@ fn logical_or() {
     let source = r#"
 fn main(x: double): double {
     if x >= 2 || (x == 1 || x == 3) { 1 } else { 0 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 1.0), 1.0);
     assert_eq!(source_exec(&source, 2.0), 1.0);
@@ -301,8 +367,7 @@ fn logical_precedence() {
     let source = r#"
 fn main(x: double): double {
     if x >= 2 || x == 1 && x < 3 { 1 } else { 0 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 1.0), 1.0);
     assert_eq!(source_exec(&source, 2.0), 1.0);
@@ -315,8 +380,7 @@ fn logical_lhs_return() {
 fn main(x: double): double {
     if (return 2) && x == 1 { return 3; }
     return 4;
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 2.0);
     assert_eq!(source_exec(&source, 1.0), 2.0);
 }
@@ -327,8 +391,7 @@ fn logical_rhs_return() {
 fn main(x: double): double {
     if x == 1 && (return 2) { return 3; }
     return 4;
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 4.0);
     assert_eq!(source_exec(&source, 1.0), 2.0);
 }
@@ -339,8 +402,7 @@ fn logical_both_hs_return() {
 fn main(x: double): double {
     if (return 1) && (return 2) { return 3; }
     return 4;
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 1.0);
 }
 
@@ -349,8 +411,7 @@ fn neg() {
     let source = r#"
 fn main(x: double): double {
     -x
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 5.0), -5.0);
 }
@@ -360,8 +421,7 @@ fn multiple_neg() {
     let source = r#"
 fn main(x: double): double {
     ----x
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 5.0), 5.0);
 }
@@ -371,8 +431,7 @@ fn not() {
     let source = r#"
 fn main(x: double): double {
     if !(x == 3) { 1 } else { 0 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 2.0), 1.0);
     assert_eq!(source_exec(&source, 3.0), 0.0);
 }
@@ -382,8 +441,7 @@ fn multiple_not() {
     let source = r#"
 fn main(x: double): double {
     if !!!!(x == 3) { 1 } else { 0 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 2.0), 0.0);
     assert_eq!(source_exec(&source, 3.0), 1.0);
 }
@@ -396,8 +454,7 @@ fn sub(x: ()) {
 }
 fn main(x: double): double {
     if sub(()) == () { 0 } else { 1 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
 }
 
@@ -409,8 +466,7 @@ fn sub(x: bool): bool {
 }
 fn main(x: double): double {
     if sub(x == 0) { 0 } else { 1 }
-}
-"#;
+}"#;
     assert_eq!(source_exec(&source, 0.0), 0.0);
     assert_eq!(source_exec(&source, 1.0), 1.0);
 }
