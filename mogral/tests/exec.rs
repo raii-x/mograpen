@@ -109,6 +109,37 @@ fn main(x: double): double {
 }
 
 #[test]
+fn array_copy() {
+    let source = r#"
+fn main(x: double): double {
+    a: [double; 2];
+    set a[0] = 1;
+    set a[1] = 2;
+    b = a;
+    b[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
+fn array_return() {
+    let source = r#"
+fn sub(): [double; 2] {
+    a: [double; 2];
+    set a[0] = 1;
+    set a[1] = 2;
+    a
+}
+fn main(x: double): double {
+    a = sub();
+    a[x]
+}"#;
+    assert_eq!(source_exec(source, 0.0), 1.0);
+    assert_eq!(source_exec(source, 1.0), 2.0);
+}
+
+#[test]
 fn array_multidimensional() {
     let source = r#"
 fn main(x: double): double {
