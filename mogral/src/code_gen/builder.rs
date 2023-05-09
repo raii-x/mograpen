@@ -10,12 +10,12 @@ use inkwell::{
 use crate::{
     pos::{Span, Spanned},
     types::MglType,
-    unwrap_or_return, BinOp, LazyBinOp, UnOp,
+    unwrap_never, BinOp, LazyBinOp, UnOp,
 };
 
 use super::{
     error::CodeGenError,
-    value::{Expr, ExprCategory, MglFunction, PlaceExpr, ValueExpr},
+    value::{Expr, ExprCategory, MaybeNever, MglFunction, PlaceExpr, ValueExpr},
 };
 
 /// Exprを扱う命令を作成するための構造体
@@ -177,7 +177,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         target: PlaceExpr<'ctx>,
         index: Spanned<Expr<'ctx>>,
         span: Span,
-    ) -> Result<Option<Expr<'ctx>>, Spanned<CodeGenError>> {
+    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
         // インデックスをValueExprに変換
         let index_expr = self.build_expr(index.item);
 
@@ -229,7 +229,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             },
         };
 
-        Ok(Some(place.into()))
+        Ok(place.into())
     }
 
     /// Exprを返すreturn命令を作成する
@@ -264,7 +264,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         function: &MglFunction<'ctx>,
         args: &[Spanned<ValueExpr<'ctx>>],
         name: &str,
-    ) -> Result<Option<Expr<'ctx>>, Spanned<CodeGenError>> {
+    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
         // inkwellの引数のVecを作成
         let mut ink_args = Vec::with_capacity(args.len());
         for (param_ty, arg) in function.params.iter().zip(args) {
@@ -289,16 +289,14 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         let call_site = self.builder.build_call(function.value, &ink_args, name);
 
         // 関数の戻り値を返す
-        Ok(Some(
-            ValueExpr {
-                type_: function.ret_type.clone(),
-                value: match self.ink_type(&function.ret_type) {
-                    Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
-                    None => None,
-                },
-            }
-            .into(),
-        ))
+        Ok(ValueExpr {
+            type_: function.ret_type.clone(),
+            value: match self.ink_type(&function.ret_type) {
+                Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
+                None => None,
+            },
+        }
+        .into())
     }
 
     /// 二項演算命令を作成する
@@ -308,7 +306,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         lhs: &ValueExpr<'ctx>,
         rhs: &ValueExpr<'ctx>,
         span: Span,
-    ) -> Result<Option<Expr<'ctx>>, Spanned<CodeGenError>> {
+    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
         if lhs.type_ != rhs.type_ {
             return Err(Spanned::new(
                 CodeGenError::InvalidBinaryOperandTypes {
@@ -426,7 +424,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         };
 
         match val {
-            Some(v) => Ok(Some(v.into())),
+            Some(v) => Ok(v.into()),
             None => Err(Spanned::new(
                 CodeGenError::InvalidBinaryOperandTypes {
                     op,
@@ -443,16 +441,16 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         &self,
         func: FunctionValue<'ctx>,
         op: LazyBinOp,
-        lhs: Spanned<&Option<Expr<'ctx>>>,
+        lhs: Spanned<&MaybeNever<'ctx>>,
         gen_rhs: F,
-    ) -> Result<Option<Expr<'ctx>>, Spanned<CodeGenError>>
+    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>>
     where
-        F: FnOnce() -> Result<Spanned<Option<Expr<'ctx>>>, Spanned<CodeGenError>>,
+        F: FnOnce() -> Result<Spanned<MaybeNever<'ctx>>, Spanned<CodeGenError>>,
     {
         // ======================================== 左辺の基本ブロックの処理
 
         // 左辺でreturnする場合は右辺を評価しない
-        let lhs_v = unwrap_or_return!(lhs.item);
+        let lhs_v = unwrap_never!(lhs.item);
 
         // 左辺がboolでなければエラー
         if lhs_v.type_ != MglType::Bool {
@@ -505,7 +503,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         let rhs = gen_rhs()?;
 
         // 右辺でreturnしない場合
-        if let Some(rhs_v) = rhs.item {
+        if let MaybeNever::Value(rhs_v) = rhs.item {
             // 右辺がboolでなければエラー
             if rhs_v.type_ != MglType::Bool {
                 return Err(Spanned::new(
@@ -533,23 +531,20 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         self.builder.position_at_end(merge_bb);
 
         // 変数から評価した値を読み出して返す
-        Ok(Some(self.build_load(&eval_var).into()))
+        Ok(self.build_load(&eval_var).into())
     }
 
     /// 単項演算命令を作成する
     pub fn build_un_op(
         &self,
         op: UnOp,
-        opnd: Option<Expr<'ctx>>,
+        opnd: MaybeNever<'ctx>,
         span: Span,
-    ) -> Result<Option<Expr<'ctx>>, Spanned<CodeGenError>> {
-        match opnd {
-            Some(opnd) => self
-                .build_un_op_inner(op, opnd)
-                .map(Some)
-                .map_err(|e| Spanned::new(e, span)),
-            _ => Ok(None),
-        }
+    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
+        let opnd = unwrap_never!(opnd);
+        self.build_un_op_inner(op, opnd)
+            .map(|x| x.into())
+            .map_err(|e| Spanned::new(e, span))
     }
 
     fn build_un_op_inner(&self, op: UnOp, opnd: Expr<'ctx>) -> Result<Expr<'ctx>, CodeGenError> {
