@@ -71,6 +71,35 @@ impl<'ctx> TryFrom<Expr<'ctx>> for PlaceExpr<'ctx> {
     }
 }
 
+/// 値が存在しない可能性がある `Expr`
+///
+/// return式などでは制御を返さずに終了するため、
+/// 値が存在しない可能性がある
+#[must_use]
+#[derive(Clone)]
+pub enum MaybeNever<'ctx> {
+    Value(Expr<'ctx>),
+    Never,
+}
+
+impl<'ctx> From<Expr<'ctx>> for MaybeNever<'ctx> {
+    fn from(expr: Expr<'ctx>) -> Self {
+        Self::Value(expr)
+    }
+}
+
+impl<'ctx> From<ValueExpr<'ctx>> for MaybeNever<'ctx> {
+    fn from(expr: ValueExpr<'ctx>) -> Self {
+        Self::Value(expr.into())
+    }
+}
+
+impl<'ctx> From<PlaceExpr<'ctx>> for MaybeNever<'ctx> {
+    fn from(expr: PlaceExpr<'ctx>) -> Self {
+        Self::Value(expr.into())
+    }
+}
+
 /// MograLで使用する関数
 #[derive(Clone)]
 pub struct MglFunction<'ctx> {

@@ -1,11 +1,11 @@
-/// OptionがSomeならば中身を取り出し、
-/// NoneならばOk(None)をreturnする
+/// MaybeNeverがValueならば中身を取り出し、
+/// NeverならばOk(Never)をreturnする
 #[macro_export]
-macro_rules! unwrap_or_return {
+macro_rules! unwrap_never {
     ( $e:expr ) => {
         match $e {
-            Some(x) => x,
-            None => return Ok(None),
+            MaybeNever::Value(x) => x,
+            MaybeNever::Never => return Ok(MaybeNever::Never),
         }
     };
 }
