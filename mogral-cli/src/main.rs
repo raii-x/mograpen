@@ -29,7 +29,19 @@ fn compile(buffer: &mut String) -> Result<(), Box<dyn Error + '_>> {
         File::open(&args[1])?.read_to_string(buffer)?;
     } else {
         // 標準入力から読み込み
-        io::stdin().read_to_string(buffer)?;
+        if cfg!(target_os = "windows") {
+            // WindowsではCtrl+Z入力時に `Windows stdin in console mode does not support non-UTF-16 input;
+            // encountered unpaired surrogate` というエラーが出るので、1行ずつ読み込み、
+            // エラーが出たら読み込みを終了する
+            for line in io::stdin().lines() {
+                match line {
+                    Ok(line) => buffer.push_str(&line),
+                    Err(_) => break,
+                }
+            }
+        } else {
+            io::stdin().read_to_string(buffer)?;
+        }
     }
 
     let pos_conv = SourcePosConverter::new(buffer);
