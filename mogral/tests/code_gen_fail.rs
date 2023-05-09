@@ -134,6 +134,25 @@ fn main() {
 }
 
 #[test]
+fn for_until_mismatched_types() {
+    let source = r#"
+fn main() {
+    for i, true {}
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 12),
+            (3, 16),
+            MismatchedTypes {
+                expected: MglType::Double,
+                found: MglType::Bool
+            }
+        )
+    );
+}
+
+#[test]
 fn func_call_mismatched_types() {
     let source = r#"
 fn f(x: double): double { x }
