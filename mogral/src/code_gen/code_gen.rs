@@ -14,7 +14,7 @@ use crate::{ast, unwrap_never};
 
 use super::builder::MglBuilder;
 use super::error::CodeGenError;
-use super::value::{Expr, MaybeNever, MglFunction, PlaceExpr, ValueExpr};
+use super::value::{MaybeNever, MglFunction, PlaceExpr, ValueExpr};
 
 struct CodeGen<'ctx, 'a> {
     context: &'ctx Context,
@@ -204,6 +204,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         if let MaybeNever::Value(body) = body {
             // return文が無いパスがある場合はここでreturnを作成
+            let body = self.mgl_builder.build_expr(body);
+
             self.mgl_builder.build_return(
                 &self.current_fn.as_ref().unwrap().ret_type,
                 Sp::new(&body, item.body.span),
@@ -271,7 +273,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             Some(val) => {
                 // 初期値のコード生成
                 // returnするならそれ以降のコード生成を行わない
-                Some(unwrap_never!(self.gen_expr(val.as_ref())?))
+                let expr = unwrap_never!(self.gen_expr(val.as_ref())?);
+                Some(self.mgl_builder.build_expr(expr))
             }
             // 初期値がなければNone
             None => None,
@@ -351,6 +354,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             .map_err(|_| Sp::new(CodeGenError::AssignmentToNonPlaceExpression, item.var.span))?;
 
         let val = unwrap_never!(self.gen_expr(item.val.as_ref())?);
+        let val = self.mgl_builder.build_expr(val);
 
         // 値を代入
         self.mgl_builder
@@ -365,6 +369,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let span = ast.span;
 
         let val = unwrap_never!(self.gen_expr(ast)?);
+        let val = self.mgl_builder.build_expr(val);
+
         self.mgl_builder.build_return(
             &self.current_fn.as_ref().unwrap().ret_type,
             Sp::new(&val, span),
@@ -389,6 +395,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         self.mgl_builder
             .build_bin_op(item.op.item, &lhs, &rhs, span)
+            .map(|x| x.into())
     }
 
     fn gen_lazy_bin_op_expr(
@@ -400,15 +407,15 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let func = self.current_fn.as_ref().unwrap().value;
 
         // 左辺のコード生成
-        let lhs = self.gen_expr(item.lhs.as_ref())?;
+        let lhs = unwrap_never!(self.gen_expr(item.lhs.as_ref())?);
+        let lhs = self.mgl_builder.build_expr(lhs);
 
         // 演算子のコード生成
-        self.mgl_builder.build_lazy_bin_op(
-            func,
-            item.op.item,
-            Sp::new(&lhs, ast.item.lhs.span),
-            || Ok(Sp::new(self.gen_expr(item.rhs.as_ref())?, item.rhs.span)),
-        )
+        self.mgl_builder
+            .build_lazy_bin_op(func, item.op.item, Sp::new(&lhs, ast.item.lhs.span), || {
+                Ok(Sp::new(self.gen_expr(item.rhs.as_ref())?, item.rhs.span))
+            })
+            .map(|x| x.into())
     }
 
     fn gen_un_op_expr(
@@ -417,8 +424,12 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     ) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
-        let opnd = self.gen_expr(item.opnd.as_ref())?;
-        self.mgl_builder.build_un_op(item.op.item, opnd, span)
+        let opnd = unwrap_never!(self.gen_expr(item.opnd.as_ref())?);
+        let opnd = self.mgl_builder.build_expr(opnd);
+
+        self.mgl_builder
+            .build_un_op(item.op.item, opnd, span)
+            .map(|x| x.into())
     }
 
     fn gen_index(&mut self, ast: Sp<&ast::Index>) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
@@ -434,9 +445,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             .map_err(|ty| Sp::new(CodeGenError::NonIndexableType(ty), span))?;
 
         let index = unwrap_never!(self.gen_expr(item.index.as_ref())?);
+        let index = self.mgl_builder.build_expr(index);
 
         self.mgl_builder
             .build_index(target, Sp::new(index, item.index.span), span)
+            .map(|x| x.into())
     }
 
     fn gen_literal(&self, ast: Sp<&ast::Literal>) -> Result<ValueExpr<'ctx>, Sp<CodeGenError>> {
@@ -497,6 +510,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // 関数呼び出し命令を作成
         self.mgl_builder
             .build_call(&func, &args, &item.func_name.item)
+            .map(|x| x.into())
     }
 
     fn gen_if(&mut self, ast: Sp<&ast::If>) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
@@ -505,6 +519,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // 条件式の処理
         // returnするならそれ以降のコード生成を行わない
         let cond = unwrap_never!(self.gen_expr(item.cond.as_ref())?);
+        let cond = self.mgl_builder.build_expr(cond);
 
         // 型チェック
         if cond.type_ != MglType::Bool {
@@ -526,7 +541,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_if_without_else(
         &mut self,
         ast: Sp<&ast::If>,
-        cond: Expr,
+        cond: ValueExpr,
     ) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
@@ -569,7 +584,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_if_else(
         &mut self,
         ast: Sp<&ast::If>,
-        cond: Expr,
+        cond: ValueExpr,
     ) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
@@ -593,6 +608,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let then_val = self.gen_block(item.then.as_ref())?;
 
         if let MaybeNever::Value(then_val) = then_val {
+            let then_val = self.mgl_builder.build_expr(then_val);
+
             // 変数を作成して格納
             if_var = Some(
                 self.mgl_builder
@@ -613,6 +630,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let else_val = self.gen_block(else_.as_ref())?;
 
         if let MaybeNever::Value(else_val) = else_val {
+            let else_val = self.mgl_builder.build_expr(else_val);
+
             match &if_var {
                 Some(var) => {
                     if else_val.type_ != var.type_ {
@@ -692,12 +711,9 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // インデックスを取得
         let index_val = self.mgl_builder.build_load(&index_var);
 
-        let end_cond = unwrap_never!(self.mgl_builder.build_bin_op(
-            BinOp::Lt,
-            &index_val,
-            &until_val,
-            span
-        )?);
+        let end_cond = self
+            .mgl_builder
+            .build_bin_op(BinOp::Lt, &index_val, &until_val, span)?;
 
         let body_bb = self.context.append_basic_block(parent, "loop_body");
         let after_bb = self.context.append_basic_block(parent, "after_loop");
@@ -715,12 +731,13 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let index_val = self.mgl_builder.build_load(&index_var);
 
         // インクリメントしてストア
-        let next_index_val = unwrap_never!(self.mgl_builder.build_bin_op(
+        let next_index_val = self.mgl_builder.build_bin_op(
             BinOp::Add,
             &index_val,
             &self.mgl_builder.double(1.0),
             span,
-        )?);
+        )?;
+
         self.mgl_builder
             .build_store(&index_var, Sp::new(&next_index_val, item.var_name.span))?;
 

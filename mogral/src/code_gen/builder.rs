@@ -10,7 +10,7 @@ use inkwell::{
 use crate::{
     pos::{Span, Spanned},
     types::MglType,
-    unwrap_never, BinOp, LazyBinOp, UnOp,
+    BinOp, LazyBinOp, UnOp,
 };
 
 use super::{
@@ -102,7 +102,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
     pub fn build_store(
         &self,
         variable: &PlaceExpr<'ctx>,
-        expr: Spanned<&Expr<'ctx>>,
+        expr: Spanned<&ValueExpr<'ctx>>,
     ) -> Result<Option<InstructionValue<'ctx>>, Spanned<CodeGenError>> {
         // 変数と代入する値の型チェック
         if variable.type_ != expr.item.type_ {
@@ -115,10 +115,8 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             ));
         }
 
-        let expr = self.build_expr(expr.item.clone());
-
         Ok(match variable.alloca {
-            Some(alloca) => Some(self.builder.build_store(alloca, expr.value.unwrap())),
+            Some(alloca) => Some(self.builder.build_store(alloca, expr.item.value.unwrap())),
             None => None,
         })
     }
@@ -175,12 +173,9 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
     pub fn build_index(
         &self,
         target: PlaceExpr<'ctx>,
-        index: Spanned<Expr<'ctx>>,
+        index: Spanned<ValueExpr<'ctx>>,
         span: Span,
-    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
-        // インデックスをValueExprに変換
-        let index_expr = self.build_expr(index.item);
-
+    ) -> Result<PlaceExpr<'ctx>, Spanned<CodeGenError>> {
         // targetの型チェックと要素型の取得
         let elm_ty = match &target.type_ {
             MglType::Array { type_, size: _ } => type_.as_ref(),
@@ -194,16 +189,16 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         };
 
         // インデックスの型チェック
-        if index_expr.type_ != MglType::Double {
+        if index.item.type_ != MglType::Double {
             return Err(Spanned::new(
-                CodeGenError::InvalidIndexType(index_expr.type_),
+                CodeGenError::InvalidIndexType(index.item.type_),
                 index.span,
             ));
         }
 
         // インデックスのdoubleをi64に変換
         let index = self.builder.build_float_to_unsigned_int(
-            index_expr.value.unwrap().into_float_value(),
+            index.item.value.unwrap().into_float_value(),
             self.context.i64_type(),
             "index",
         );
@@ -212,7 +207,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         let index_array = [self.context.i64_type().const_int(0, false), index];
 
         // 配列の要素を取得
-        let place = PlaceExpr {
+        Ok(PlaceExpr {
             type_: elm_ty.clone(),
             alloca: match self.ink_type(&target.type_) {
                 Some(array_ty) => unsafe {
@@ -227,16 +222,14 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
                 },
                 None => None,
             },
-        };
-
-        Ok(place.into())
+        })
     }
 
-    /// Exprを返すreturn命令を作成する
+    /// ValueExprを戻り値とするreturn命令を作成する
     pub fn build_return(
         &self,
         ret_type: &MglType,
-        expr: Spanned<&Expr<'ctx>>,
+        expr: Spanned<&ValueExpr<'ctx>>,
     ) -> Result<InstructionValue<'ctx>, Spanned<CodeGenError>> {
         // 戻り値の型チェック
         if &expr.item.type_ != ret_type {
@@ -249,10 +242,8 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             ));
         }
 
-        let expr = self.build_expr(expr.item.clone());
-
         // return命令を作成
-        Ok(match expr.value {
+        Ok(match expr.item.value {
             Some(value) => self.builder.build_return(Some(&value)),
             None => self.builder.build_return(None),
         })
@@ -264,7 +255,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         function: &MglFunction<'ctx>,
         args: &[Spanned<ValueExpr<'ctx>>],
         name: &str,
-    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
+    ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>> {
         // inkwellの引数のVecを作成
         let mut ink_args = Vec::with_capacity(args.len());
         for (param_ty, arg) in function.params.iter().zip(args) {
@@ -295,8 +286,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
                 Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
                 None => None,
             },
-        }
-        .into())
+        })
     }
 
     /// 二項演算命令を作成する
@@ -306,7 +296,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         lhs: &ValueExpr<'ctx>,
         rhs: &ValueExpr<'ctx>,
         span: Span,
-    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
+    ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>> {
         if lhs.type_ != rhs.type_ {
             return Err(Spanned::new(
                 CodeGenError::InvalidBinaryOperandTypes {
@@ -424,7 +414,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         };
 
         match val {
-            Some(v) => Ok(v.into()),
+            Some(v) => Ok(v),
             None => Err(Spanned::new(
                 CodeGenError::InvalidBinaryOperandTypes {
                     op,
@@ -441,36 +431,31 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         &self,
         func: FunctionValue<'ctx>,
         op: LazyBinOp,
-        lhs: Spanned<&MaybeNever<'ctx>>,
+        lhs: Spanned<&ValueExpr<'ctx>>,
         gen_rhs: F,
-    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>>
+    ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>>
     where
         F: FnOnce() -> Result<Spanned<MaybeNever<'ctx>>, Spanned<CodeGenError>>,
     {
         // ======================================== 左辺の基本ブロックの処理
 
-        // 左辺でreturnする場合は右辺を評価しない
-        let lhs_v = unwrap_never!(lhs.item);
-
         // 左辺がboolでなければエラー
-        if lhs_v.type_ != MglType::Bool {
+        if lhs.item.type_ != MglType::Bool {
             return Err(Spanned::new(
                 CodeGenError::MismatchedTypes {
                     expected: MglType::Bool,
-                    found: lhs_v.type_.clone(),
+                    found: lhs.item.type_.clone(),
                 },
                 lhs.span,
             ));
         }
-
-        let lhs_v = self.build_expr(lhs_v.clone());
 
         // 演算を評価した値を格納する変数
         let eval_var = self.create_variable(func, &MglType::Bool, "lazy_bin_value");
 
         // 変数に左辺の結果を格納
         self.builder
-            .build_store(eval_var.alloca.unwrap(), lhs_v.value.unwrap());
+            .build_store(eval_var.alloca.unwrap(), lhs.item.value.unwrap());
 
         // 基本ブロックを作成
         let rhs_bb = self.context.append_basic_block(func, "lazy_bin_rhs");
@@ -480,14 +465,14 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         match op {
             LazyBinOp::And => {
                 self.builder.build_conditional_branch(
-                    lhs_v.value.unwrap().into_int_value(),
+                    lhs.item.value.unwrap().into_int_value(),
                     rhs_bb,
                     merge_bb,
                 );
             }
             LazyBinOp::Or => {
                 self.builder.build_conditional_branch(
-                    lhs_v.value.unwrap().into_int_value(),
+                    lhs.item.value.unwrap().into_int_value(),
                     merge_bb,
                     rhs_bb,
                 );
@@ -531,25 +516,16 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         self.builder.position_at_end(merge_bb);
 
         // 変数から評価した値を読み出して返す
-        Ok(self.build_load(&eval_var).into())
+        Ok(self.build_load(&eval_var))
     }
 
     /// 単項演算命令を作成する
     pub fn build_un_op(
         &self,
         op: UnOp,
-        opnd: MaybeNever<'ctx>,
+        opnd: ValueExpr<'ctx>,
         span: Span,
-    ) -> Result<MaybeNever<'ctx>, Spanned<CodeGenError>> {
-        let opnd = unwrap_never!(opnd);
-        self.build_un_op_inner(op, opnd)
-            .map(|x| x.into())
-            .map_err(|e| Spanned::new(e, span))
-    }
-
-    fn build_un_op_inner(&self, op: UnOp, opnd: Expr<'ctx>) -> Result<Expr<'ctx>, CodeGenError> {
-        let opnd = self.build_expr(opnd);
-
+    ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>> {
         match opnd.type_ {
             MglType::Double => {
                 let opnd = opnd.value.unwrap().into_float_value();
@@ -576,20 +552,21 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             MglType::Unit => None,
             MglType::Array { .. } => None,
         }
-        .ok_or(CodeGenError::InvalidUnaryOperandType {
-            op,
-            type_: opnd.type_,
-        })
-        .map(|v| v.into())
+        .ok_or(Spanned::new(
+            CodeGenError::InvalidUnaryOperandType {
+                op,
+                type_: opnd.type_,
+            },
+            span,
+        ))
     }
 
     pub fn build_conditional_branch(
         &self,
-        cond: &Expr<'ctx>,
+        cond: &ValueExpr<'ctx>,
         then_bb: BasicBlock<'ctx>,
         else_bb: BasicBlock<'ctx>,
     ) -> InstructionValue<'ctx> {
-        let cond = self.build_expr(cond.clone());
         let cond = cond.value.unwrap().into_int_value();
         self.builder
             .build_conditional_branch(cond, then_bb, else_bb)
