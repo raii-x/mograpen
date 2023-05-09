@@ -708,6 +708,17 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let until_val = unwrap_never!(self.gen_expr(item.until.as_ref())?);
         let until_val = self.mgl_builder.build_expr(until_val);
 
+        // until_valの型チェック
+        if until_val.type_ != MglType::Double {
+            return Err(Sp::new(
+                CodeGenError::MismatchedTypes {
+                    expected: MglType::Double,
+                    found: until_val.type_,
+                },
+                item.until.span,
+            ));
+        }
+
         // インデックスを取得
         let index_val = self.mgl_builder.build_load(&index_var);
 
