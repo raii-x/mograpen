@@ -322,6 +322,7 @@ fn invalid_binary_operand_types_double_unit() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
+        BinOp::Rem,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -359,6 +360,7 @@ fn invalid_binary_operand_types_double_bool() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
+        BinOp::Rem,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -394,6 +396,7 @@ fn invalid_binary_operand_types_ord_arith_bool() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
+        BinOp::Rem,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -465,6 +468,7 @@ fn invalid_binary_operand_types_array_not_match_element_types() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
+        BinOp::Rem,
     ] {
         let op_str: &str = op.into();
         let source = format!(
@@ -510,6 +514,7 @@ fn invalid_binary_operand_types_array_not_match_element_numbers() {
         BinOp::Sub,
         BinOp::Mul,
         BinOp::Div,
+        BinOp::Rem,
     ] {
         let op_str: &str = op.into();
         let source = format!(
