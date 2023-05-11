@@ -24,6 +24,8 @@ pub enum BinOp {
     Mul,
     #[strum(serialize = "/")]
     Div,
+    #[strum(serialize = "%")]
+    Rem,
 }
 
 impl Display for BinOp {

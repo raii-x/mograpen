@@ -140,6 +140,7 @@ AddOp:                                      BinOp = {
 MulOp:                                      BinOp = {
     "*"                                         => BinOp::Mul,
     "/"                                         => BinOp::Div,
+    "%"                                         => BinOp::Rem,
 };
 
 LogAndOp:                                   LazyBinOp = {
