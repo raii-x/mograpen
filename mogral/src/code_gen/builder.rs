@@ -379,6 +379,10 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
                         type_: MglType::Double,
                         value: Some(self.builder.build_float_div(lhs_v, rhs_v, "divtmp").into()),
                     }),
+                    BinOp::Rem => Some(ValueExpr {
+                        type_: MglType::Double,
+                        value: Some(self.builder.build_float_rem(lhs_v, rhs_v, "remtmp").into()),
+                    }),
                 }
             }
             MglType::Bool => {

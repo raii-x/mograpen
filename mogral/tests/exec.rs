@@ -246,6 +246,7 @@ fn arith() {
         (BinOp::Sub, 4.0),
         (BinOp::Mul, 12.0),
         (BinOp::Div, 3.0),
+        (BinOp::Rem, 0.0),
     ] {
         let source = format!(
             r#"
@@ -255,6 +256,14 @@ fn main(x: double): double {{ 6 {} 2 }}
         );
         assert_eq!(source_exec(&source, 0.0), ans);
     }
+}
+
+#[test]
+fn rem() {
+    let source = r#"
+fn main(x: double): double { 11 % 4 }
+"#;
+    assert_eq!(source_exec(&source, 0.0), 3.0);
 }
 
 #[test]
