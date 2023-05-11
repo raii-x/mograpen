@@ -25,6 +25,19 @@ pub struct MglBuilder<'ctx, 'a> {
 }
 
 impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
+    /// int型の定数値のValueExprを生成する
+    pub fn int(&self, value: i32) -> ValueExpr<'ctx> {
+        ValueExpr {
+            type_: MglType::Int,
+            value: Some(
+                self.context
+                    .i32_type()
+                    .const_int(value as u64, true)
+                    .as_basic_value_enum(),
+            ),
+        }
+    }
+
     /// double型の定数値のValueExprを生成する
     pub fn double(&self, value: f64) -> ValueExpr<'ctx> {
         ValueExpr {
@@ -55,6 +68,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
     pub fn ink_type(&self, type_: &MglType) -> Option<BasicTypeEnum<'ctx>> {
         match type_ {
             MglType::Unit => None,
+            MglType::Int => Some(self.context.i32_type().into()),
             MglType::Double => Some(self.context.f64_type().into()),
             MglType::Bool => Some(self.context.bool_type().into()),
             MglType::Array { type_, size } => match self.ink_type(type_) {
@@ -310,6 +324,89 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
 
         // 被演算子の型が対応していなければNoneとしている
         let val = match lhs.type_ {
+            MglType::Int => {
+                let lhs_v = lhs.value.unwrap().into_int_value();
+                let rhs_v = rhs.value.unwrap().into_int_value();
+
+                match op {
+                    BinOp::Lt => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::SLT, lhs_v, rhs_v, "lttmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Gt => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::SGT, lhs_v, rhs_v, "gttmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Leq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::SLE, lhs_v, rhs_v, "letmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Geq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::SGE, lhs_v, rhs_v, "getmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Eq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::EQ, lhs_v, rhs_v, "eqtmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Neq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::NE, lhs_v, rhs_v, "netmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Add => Some(ValueExpr {
+                        type_: MglType::Int,
+                        value: Some(self.builder.build_int_add(lhs_v, rhs_v, "addtmp").into()),
+                    }),
+                    BinOp::Sub => Some(ValueExpr {
+                        type_: MglType::Int,
+                        value: Some(self.builder.build_int_sub(lhs_v, rhs_v, "subtmp").into()),
+                    }),
+                    BinOp::Mul => Some(ValueExpr {
+                        type_: MglType::Int,
+                        value: Some(self.builder.build_int_mul(lhs_v, rhs_v, "multmp").into()),
+                    }),
+                    BinOp::Div => Some(ValueExpr {
+                        type_: MglType::Int,
+                        value: Some(
+                            self.builder
+                                .build_int_signed_div(lhs_v, rhs_v, "divtmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Rem => Some(ValueExpr {
+                        type_: MglType::Int,
+                        value: Some(
+                            self.builder
+                                .build_int_signed_rem(lhs_v, rhs_v, "remtmp")
+                                .into(),
+                        ),
+                    }),
+                }
+            }
             MglType::Double => {
                 let lhs_v = lhs.value.unwrap().into_float_value();
                 let rhs_v = rhs.value.unwrap().into_float_value();
@@ -531,6 +628,17 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         span: Span,
     ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>> {
         match opnd.type_ {
+            MglType::Int => {
+                let opnd = opnd.value.unwrap().into_int_value();
+
+                match op {
+                    UnOp::Neg => Some(ValueExpr {
+                        type_: MglType::Double,
+                        value: Some(self.builder.build_int_neg(opnd, "negtmp").into()),
+                    }),
+                    _ => None,
+                }
+            }
             MglType::Double => {
                 let opnd = opnd.value.unwrap().into_float_value();
 

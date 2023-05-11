@@ -161,7 +161,8 @@ Ident:                                      String = {
 
 Literal:                                    ast::Literal = {
     Unit                                        => ast::Literal::Unit(<>),
-    Number                                      => ast::Literal::Float(<>),
+    Int                                         => ast::Literal::Int(<> as i32),
+    Float                                       => ast::Literal::Float(<>),
     Bool                                        => ast::Literal::Bool(<>),
 };
 
@@ -169,11 +170,7 @@ Unit:                                       () = {
     "(" ")"                                     => (),
 }
 
-Number:                                     f64 = {
-    Integer                                     => <> as f64,
-    Float,
-}
-Integer:                                    u64 = {
+Int:                                        u64 = {
     r"0|[1-9][0-9]*"                            => u64::from_str(<>).unwrap(),
 }
 Float:                                      f64 = {
@@ -187,9 +184,10 @@ Bool:                                       bool = {
 
 Type:                                       MglType = {
     "(" ")"                                     => MglType::Unit,
+    "int"                                       => MglType::Int,
     "double"                                    => MglType::Double,
     "bool"                                      => MglType::Bool,
-    "[" <t:Type> ";" <s:Integer> "]"            => MglType::Array { type_: Box::new(t), size: s as usize },
+    "[" <t:Type> ";" <s:Int> "]"                => MglType::Array { type_: Box::new(t), size: s as usize },
 }
 
 Comma<T>:                                   Vec<T> = {

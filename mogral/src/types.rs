@@ -7,6 +7,8 @@ use strum_macros::IntoStaticStr;
 pub enum MglType {
     #[strum(serialize = "()")]
     Unit,
+    #[strum(serialize = "int")]
+    Int,
     #[strum(serialize = "double")]
     Double,
     #[strum(serialize = "bool")]

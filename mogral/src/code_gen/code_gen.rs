@@ -457,6 +457,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         match item {
             ast::Literal::Unit(_) => Ok(ValueExpr::unit()),
+            ast::Literal::Int(v) => Ok(self.mgl_builder.int(*v)),
             ast::Literal::Float(v) => Ok(self.mgl_builder.double(*v)),
             ast::Literal::Bool(v) => Ok(self.mgl_builder.bool(*v)),
         }
