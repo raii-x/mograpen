@@ -541,7 +541,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_if_without_else(
         &mut self,
         ast: Sp<&ast::If>,
-        cond: ValueExpr,
+        cond: ValueExpr<'ctx>,
     ) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
@@ -584,7 +584,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
     fn gen_if_else(
         &mut self,
         ast: Sp<&ast::If>,
-        cond: ValueExpr,
+        cond: ValueExpr<'ctx>,
     ) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span: _ } = ast;
 
