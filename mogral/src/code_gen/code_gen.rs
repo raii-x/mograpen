@@ -521,17 +521,6 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let cond = unwrap_never!(self.gen_expr(item.cond.as_ref())?);
         let cond = self.mgl_builder.build_expr(cond);
 
-        // 型チェック
-        if cond.type_ != MglType::Bool {
-            return Err(Sp::new(
-                CodeGenError::MismatchedTypes {
-                    expected: MglType::Bool,
-                    found: cond.type_,
-                },
-                item.cond.span,
-            ));
-        }
-
         match &item.else_ {
             Some(_) => self.gen_if_else(ast, cond),
             None => self.gen_if_without_else(ast, cond),
@@ -551,8 +540,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let then_bb = self.context.append_basic_block(parent, "then");
         let merge_bb = self.context.append_basic_block(parent, "ifcont");
 
-        self.mgl_builder
-            .build_conditional_branch(&cond, then_bb, merge_bb);
+        self.mgl_builder.build_conditional_branch(
+            Sp::new(cond, item.cond.span),
+            then_bb,
+            merge_bb,
+        )?;
 
         // ======================================== then_bbの処理
         self.builder.position_at_end(then_bb);
@@ -598,8 +590,11 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let else_bb = self.context.append_basic_block(parent, "else");
         let merge_bb = self.context.append_basic_block(parent, "ifcont");
 
-        self.mgl_builder
-            .build_conditional_branch(&cond, then_bb, else_bb);
+        self.mgl_builder.build_conditional_branch(
+            Sp::new(cond, item.cond.span),
+            then_bb,
+            else_bb,
+        )?;
 
         // ======================================== then_bbの処理
         self.builder.position_at_end(then_bb);
@@ -730,7 +725,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let after_bb = self.context.append_basic_block(parent, "after_loop");
 
         self.mgl_builder
-            .build_conditional_branch(&end_cond, body_bb, after_bb);
+            .build_conditional_branch(Sp::new(end_cond, span), body_bb, after_bb)?;
 
         // ======================================== body_bbの処理
         self.builder.position_at_end(body_bb);

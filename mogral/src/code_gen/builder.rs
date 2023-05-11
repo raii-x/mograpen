@@ -563,12 +563,24 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
 
     pub fn build_conditional_branch(
         &self,
-        cond: &ValueExpr<'ctx>,
+        cond: Spanned<ValueExpr<'ctx>>,
         then_bb: BasicBlock<'ctx>,
         else_bb: BasicBlock<'ctx>,
-    ) -> InstructionValue<'ctx> {
-        let cond = cond.value.unwrap().into_int_value();
-        self.builder
-            .build_conditional_branch(cond, then_bb, else_bb)
+    ) -> Result<InstructionValue<'ctx>, Spanned<CodeGenError>> {
+        // 型チェック
+        if cond.item.type_ != MglType::Bool {
+            return Err(Spanned::new(
+                CodeGenError::MismatchedTypes {
+                    expected: MglType::Bool,
+                    found: cond.item.type_,
+                },
+                cond.span,
+            ));
+        }
+
+        let cond = cond.item.value.unwrap().into_int_value();
+        Ok(self
+            .builder
+            .build_conditional_branch(cond, then_bb, else_bb))
     }
 }
