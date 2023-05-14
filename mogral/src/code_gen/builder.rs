@@ -203,22 +203,18 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         };
 
         // インデックスの型チェック
-        if index.item.type_ != MglType::Double {
+        if index.item.type_ != MglType::Int {
             return Err(Spanned::new(
                 CodeGenError::InvalidIndexType(index.item.type_),
                 index.span,
             ));
         }
 
-        // インデックスのdoubleをi64に変換
-        let index = self.builder.build_float_to_unsigned_int(
-            index.item.value.unwrap().into_float_value(),
-            self.context.i64_type(),
-            "index",
-        );
-
         // GEP命令用の配列を作成
-        let index_array = [self.context.i64_type().const_int(0, false), index];
+        let index_array = [
+            self.context.i64_type().const_int(0, false),
+            index.item.value.unwrap().into_int_value(),
+        ];
 
         // 配列の要素を取得
         Ok(PlaceExpr {
