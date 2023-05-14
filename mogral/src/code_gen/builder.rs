@@ -629,7 +629,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
 
                 match op {
                     UnOp::Neg => Some(ValueExpr {
-                        type_: MglType::Double,
+                        type_: MglType::Int,
                         value: Some(self.builder.build_int_neg(opnd, "negtmp").into()),
                     }),
                     _ => None,
