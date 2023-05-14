@@ -56,6 +56,19 @@ fn main(x: int): int {
 }
 
 #[test]
+fn variable_int() {
+    let source = r#"
+fn main(): int {
+	v = 5;
+	for i, 3 {
+		set v = v + 1;
+	}
+	return v;
+}"#;
+    assert_eq!(source_exec::<i32>(source), 8);
+}
+
+#[test]
 fn variable_double() {
     let source = r#"
 fn main(): double {
@@ -95,9 +108,11 @@ fn main() {
 fn variable_explicit_type() {
     let source = r#"
 fn main(): int {
+    i: int = 5;
     d: double = 5.;
     b: bool = true;
     u: () = ();
+    if i != 5 { return 1; }
     if d != 5. { return 1; }
     if b != true { return 1; }
     if u != () { return 1; }
@@ -253,6 +268,25 @@ fn main(): int {a = 7; a}
 }
 
 #[test]
+fn arith_int() {
+    for (op, ans) in [
+        (BinOp::Add, 8),
+        (BinOp::Sub, 4),
+        (BinOp::Mul, 12),
+        (BinOp::Div, 3),
+        (BinOp::Rem, 0),
+    ] {
+        let source = format!(
+            r#"
+fn main(): int {{ 6 {} 2 }}
+"#,
+            op
+        );
+        assert_eq!(source_exec::<i32>(&source), ans);
+    }
+}
+
+#[test]
 fn arith_double() {
     for (op, ans) in [
         (BinOp::Add, 8.),
@@ -269,6 +303,14 @@ fn main(): double {{ 6. {} 2. }}
         );
         assert_eq!(source_exec::<f64>(&source), ans);
     }
+}
+
+#[test]
+fn rem_int() {
+    let source = r#"
+fn main(): int { 11 % 4 }
+"#;
+    assert_eq!(source_exec::<i32>(&source), 3);
 }
 
 #[test]
@@ -307,6 +349,19 @@ fn main(): int {
 }
 
 #[test]
+fn eq_neq_int() {
+    let source = r#"
+fn main(): int {
+	if 3 == 3 {} else { return 1; }
+	if 3 == 4 { return 1; }
+	if 3 != 3 { return 1; }
+	if 3 != 4 {} else { return 1; }
+	0
+}"#;
+    assert_eq!(source_exec::<i32>(&source), 0);
+}
+
+#[test]
 fn eq_neq_double() {
     let source = r#"
 fn main(): int {
@@ -338,6 +393,23 @@ fn eq_neq_unit() {
 fn main(): int {
 	if () == () {} else { return 1; }
 	if () != () { return 1; }
+	0
+}"#;
+    assert_eq!(source_exec::<i32>(&source), 0);
+}
+
+#[test]
+fn ord_int() {
+    let source = r#"
+fn main(x: int): int {
+	if 3 < 3 { return 1; }
+	if 3 > 3 { return 1; }
+	if 3 <= 3 {} else { return 1; }
+	if 3 >= 3 {} else { return 1; }
+	if 3 < 4 {} else { return 1; }
+	if 3 > 4 { return 1; }
+	if 3 <= 4 {} else { return 1; }
+	if 3 >= 4 { return 1; }
 	0
 }"#;
     assert_eq!(source_exec::<i32>(&source), 0);
@@ -429,6 +501,16 @@ fn main(): int {
 }
 
 #[test]
+fn neg_int() {
+    let source = r#"
+fn main(x: int): int {
+    -x
+}"#;
+    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(&source, 5), -5);
+}
+
+#[test]
 fn neg_double() {
     let source = r#"
 fn main(x: double): double {
@@ -436,6 +518,16 @@ fn main(x: double): double {
 }"#;
     assert_eq!(source_exec_arg::<_, f64>(&source, 0.), 0.);
     assert_eq!(source_exec_arg::<_, f64>(&source, 5.), -5.);
+}
+
+#[test]
+fn multiple_neg_int() {
+    let source = r#"
+fn main(x: int): int {
+    ----x
+}"#;
+    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(&source, 5), 5);
 }
 
 #[test]

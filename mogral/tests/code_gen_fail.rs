@@ -58,6 +58,25 @@ fn main() {
 }
 
 #[test]
+fn let_mismatched_types_int_double() {
+    let source = r#"
+fn main() {
+    x: int = 0.;
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 14),
+            (3, 16),
+            MismatchedTypes {
+                expected: MglType::Int,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
 fn set_mismatched_types() {
     let source = r#"
 fn main(x: bool) {
@@ -573,7 +592,11 @@ fn main() {{
 
 #[test]
 fn invalid_unary_operand_type_not() {
-    for (operand, type_) in [("0.", MglType::Double), ("()", MglType::Unit)] {
+    for (operand, type_) in [
+        ("0", MglType::Int),
+        ("0.", MglType::Double),
+        ("()", MglType::Unit),
+    ] {
         let source = format!(
             r#"
 fn main() {{
