@@ -25,6 +25,19 @@ pub struct MglBuilder<'ctx, 'a> {
 }
 
 impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
+    /// bool型の定数値のValueExprを生成する
+    pub fn bool(&self, value: bool) -> ValueExpr<'ctx> {
+        ValueExpr {
+            type_: MglType::Bool,
+            value: Some(
+                self.context
+                    .bool_type()
+                    .const_int(if value { 1 } else { 0 }, false)
+                    .as_basic_value_enum(),
+            ),
+        }
+    }
+
     /// int型の定数値のValueExprを生成する
     pub fn int(&self, value: i32) -> ValueExpr<'ctx> {
         ValueExpr {
@@ -51,26 +64,13 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         }
     }
 
-    /// bool型の定数値のValueExprを生成する
-    pub fn bool(&self, value: bool) -> ValueExpr<'ctx> {
-        ValueExpr {
-            type_: MglType::Bool,
-            value: Some(
-                self.context
-                    .bool_type()
-                    .const_int(if value { 1 } else { 0 }, false)
-                    .as_basic_value_enum(),
-            ),
-        }
-    }
-
     /// MglTypeをinkwellの型に変換する
     pub fn ink_type(&self, type_: &MglType) -> Option<BasicTypeEnum<'ctx>> {
         match type_ {
             MglType::Unit => None,
+            MglType::Bool => Some(self.context.bool_type().into()),
             MglType::Int => Some(self.context.i32_type().into()),
             MglType::Double => Some(self.context.f64_type().into()),
-            MglType::Bool => Some(self.context.bool_type().into()),
             MglType::Array { type_, size } => match self.ink_type(type_) {
                 Some(ty) => Some(ty.array_type(*size as u32).into()),
                 None => None,
@@ -320,6 +320,35 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
 
         // 被演算子の型が対応していなければNoneとしている
         let val = match lhs.type_ {
+            MglType::Unit => match op {
+                BinOp::Eq => Some(self.bool(true)),
+                BinOp::Neq => Some(self.bool(false)),
+                _ => None,
+            },
+            MglType::Bool => {
+                let lhs_v = lhs.value.unwrap().into_int_value();
+                let rhs_v = rhs.value.unwrap().into_int_value();
+
+                match op {
+                    BinOp::Eq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::EQ, lhs_v, rhs_v, "eqtmp")
+                                .into(),
+                        ),
+                    }),
+                    BinOp::Neq => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(
+                            self.builder
+                                .build_int_compare(IntPredicate::NE, lhs_v, rhs_v, "eqtmp")
+                                .into(),
+                        ),
+                    }),
+                    _ => None,
+                }
+            }
             MglType::Int => {
                 let lhs_v = lhs.value.unwrap().into_int_value();
                 let rhs_v = rhs.value.unwrap().into_int_value();
@@ -478,35 +507,6 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
                     }),
                 }
             }
-            MglType::Bool => {
-                let lhs_v = lhs.value.unwrap().into_int_value();
-                let rhs_v = rhs.value.unwrap().into_int_value();
-
-                match op {
-                    BinOp::Eq => Some(ValueExpr {
-                        type_: MglType::Bool,
-                        value: Some(
-                            self.builder
-                                .build_int_compare(IntPredicate::EQ, lhs_v, rhs_v, "eqtmp")
-                                .into(),
-                        ),
-                    }),
-                    BinOp::Neq => Some(ValueExpr {
-                        type_: MglType::Bool,
-                        value: Some(
-                            self.builder
-                                .build_int_compare(IntPredicate::NE, lhs_v, rhs_v, "eqtmp")
-                                .into(),
-                        ),
-                    }),
-                    _ => None,
-                }
-            }
-            MglType::Unit => match op {
-                BinOp::Eq => Some(self.bool(true)),
-                BinOp::Neq => Some(self.bool(false)),
-                _ => None,
-            },
             MglType::Array { .. } => None,
         };
 
@@ -624,6 +624,18 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         span: Span,
     ) -> Result<ValueExpr<'ctx>, Spanned<CodeGenError>> {
         match opnd.type_ {
+            MglType::Unit => None,
+            MglType::Bool => {
+                let opnd = opnd.value.unwrap().into_int_value();
+
+                match op {
+                    UnOp::Not => Some(ValueExpr {
+                        type_: MglType::Bool,
+                        value: Some(self.builder.build_not(opnd, "nottmp").into()),
+                    }),
+                    _ => None,
+                }
+            }
             MglType::Int => {
                 let opnd = opnd.value.unwrap().into_int_value();
 
@@ -646,18 +658,6 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
                     _ => None,
                 }
             }
-            MglType::Bool => {
-                let opnd = opnd.value.unwrap().into_int_value();
-
-                match op {
-                    UnOp::Not => Some(ValueExpr {
-                        type_: MglType::Bool,
-                        value: Some(self.builder.build_not(opnd, "nottmp").into()),
-                    }),
-                    _ => None,
-                }
-            }
-            MglType::Unit => None,
             MglType::Array { .. } => None,
         }
         .ok_or(Spanned::new(

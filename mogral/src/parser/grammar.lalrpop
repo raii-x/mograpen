@@ -161,13 +161,18 @@ Ident:                                      String = {
 
 Literal:                                    ast::Literal = {
     Unit                                        => ast::Literal::Unit(<>),
+    Bool                                        => ast::Literal::Bool(<>),
     Int                                         => ast::Literal::Int(<> as i32),
     Float                                       => ast::Literal::Float(<>),
-    Bool                                        => ast::Literal::Bool(<>),
 };
 
 Unit:                                       () = {
     "(" ")"                                     => (),
+}
+
+Bool:                                       bool = {
+    "true"                                      => true,
+    "false"                                     => false,
 }
 
 Int:                                        u64 = {
@@ -178,16 +183,11 @@ Float:                                      f64 = {
     r"(0|[1-9][0-9]*)\."                        => f64::from_str(<>).unwrap(),
 }
 
-Bool:                                       bool = {
-    "true"                                      => true,
-    "false"                                     => false,
-}
-
 Type:                                       MglType = {
     "(" ")"                                     => MglType::Unit,
+    "bool"                                      => MglType::Bool,
     "int"                                       => MglType::Int,
     "double"                                    => MglType::Double,
-    "bool"                                      => MglType::Bool,
     "[" <t:Type> ";" <s:Int> "]"                => MglType::Array { type_: Box::new(t), size: s as usize },
 }
 

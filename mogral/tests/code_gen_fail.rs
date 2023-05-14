@@ -568,7 +568,7 @@ fn main() {{
 
 #[test]
 fn invalid_unary_operand_type_neg() {
-    for (operand, type_) in [("true", MglType::Bool), ("()", MglType::Unit)] {
+    for (operand, type_) in [("()", MglType::Unit), ("true", MglType::Bool)] {
         let source = format!(
             r#"
 fn main() {{
@@ -593,9 +593,9 @@ fn main() {{
 #[test]
 fn invalid_unary_operand_type_not() {
     for (operand, type_) in [
+        ("()", MglType::Unit),
         ("0", MglType::Int),
         ("0.", MglType::Double),
-        ("()", MglType::Unit),
     ] {
         let source = format!(
             r#"

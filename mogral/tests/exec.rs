@@ -56,6 +56,29 @@ fn main(x: int): int {
 }
 
 #[test]
+fn variable_unit() {
+    let source = r#"
+fn main() {
+    v = ();
+    set v = ();
+}"#;
+    assert_eq!(source_exec::<()>(source), ());
+}
+
+#[test]
+fn variable_bool() {
+    let source = r#"
+fn main(): bool {
+    v = true;
+    for i, 3 {
+        set v = if v { false } else { true };
+    }
+    v
+}"#;
+    assert_eq!(source_exec::<bool>(source), false);
+}
+
+#[test]
 fn variable_int() {
     let source = r#"
 fn main(): int {
@@ -82,40 +105,17 @@ fn main(): double {
 }
 
 #[test]
-fn variable_bool() {
-    let source = r#"
-fn main(): bool {
-    v = true;
-    for i, 3 {
-        set v = if v { false } else { true };
-    }
-    v
-}"#;
-    assert_eq!(source_exec::<bool>(source), false);
-}
-
-#[test]
-fn variable_unit() {
-    let source = r#"
-fn main() {
-    v = ();
-    set v = ();
-}"#;
-    assert_eq!(source_exec::<()>(source), ());
-}
-
-#[test]
 fn variable_explicit_type() {
     let source = r#"
 fn main(): int {
+    u: () = ();
+    b: bool = true;
     i: int = 5;
     d: double = 5.;
-    b: bool = true;
-    u: () = ();
+    if u != () { return 1; }
+    if b != true { return 1; }
     if i != 5 { return 1; }
     if d != 5. { return 1; }
-    if b != true { return 1; }
-    if u != () { return 1; }
     0
 }"#;
     assert_eq!(source_exec::<i32>(source), 0);
@@ -349,6 +349,30 @@ fn main(): int {
 }
 
 #[test]
+fn eq_neq_unit() {
+    let source = r#"
+fn main(): int {
+	if () == () {} else { return 1; }
+	if () != () { return 1; }
+	0
+}"#;
+    assert_eq!(source_exec::<i32>(&source), 0);
+}
+
+#[test]
+fn eq_neq_bool() {
+    let source = r#"
+fn main(): int {
+	if true == true {} else { return 1; }
+	if true == false { return 1; }
+	if true != true { return 1; }
+	if true != false {} else { return 1; }
+	0
+}"#;
+    assert_eq!(source_exec::<i32>(&source), 0);
+}
+
+#[test]
 fn eq_neq_int() {
     let source = r#"
 fn main(): int {
@@ -369,30 +393,6 @@ fn main(): int {
 	if 3. == 4. { return 1; }
 	if 3. != 3. { return 1; }
 	if 3. != 4. {} else { return 1; }
-	0
-}"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
-}
-
-#[test]
-fn eq_neq_bool() {
-    let source = r#"
-fn main(): int {
-	if true == true {} else { return 1; }
-	if true == false { return 1; }
-	if true != true { return 1; }
-	if true != false {} else { return 1; }
-	0
-}"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
-}
-
-#[test]
-fn eq_neq_unit() {
-    let source = r#"
-fn main(): int {
-	if () == () {} else { return 1; }
-	if () != () { return 1; }
 	0
 }"#;
     assert_eq!(source_exec::<i32>(&source), 0);
