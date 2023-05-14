@@ -161,23 +161,13 @@ Ident:                                      String = {
 
 Literal:                                    ast::Literal = {
     Unit                                        => ast::Literal::Unit(<>),
-    Number                                      => ast::Literal::Float(<>),
     Bool                                        => ast::Literal::Bool(<>),
+    Int                                         => ast::Literal::Int(<> as i32),
+    Float                                       => ast::Literal::Float(<>),
 };
 
 Unit:                                       () = {
     "(" ")"                                     => (),
-}
-
-Number:                                     f64 = {
-    Integer                                     => <> as f64,
-    Float,
-}
-Integer:                                    u64 = {
-    r"0|[1-9][0-9]*"                            => u64::from_str(<>).unwrap(),
-}
-Float:                                      f64 = {
-    r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
 }
 
 Bool:                                       bool = {
@@ -185,11 +175,20 @@ Bool:                                       bool = {
     "false"                                     => false,
 }
 
+Int:                                        u64 = {
+    r"0|[1-9][0-9]*"                            => u64::from_str(<>).unwrap(),
+}
+Float:                                      f64 = {
+    r"(0?|[1-9][0-9]*)\.[0-9]+"                 => f64::from_str(<>).unwrap(),
+    r"(0|[1-9][0-9]*)\."                        => f64::from_str(<>).unwrap(),
+}
+
 Type:                                       MglType = {
     "(" ")"                                     => MglType::Unit,
-    "double"                                    => MglType::Double,
     "bool"                                      => MglType::Bool,
-    "[" <t:Type> ";" <s:Integer> "]"            => MglType::Array { type_: Box::new(t), size: s as usize },
+    "int"                                       => MglType::Int,
+    "double"                                    => MglType::Double,
+    "[" <t:Type> ";" <s:Int> "]"                => MglType::Array { type_: Box::new(t), size: s as usize },
 }
 
 Comma<T>:                                   Vec<T> = {

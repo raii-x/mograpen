@@ -7,10 +7,12 @@ use strum_macros::IntoStaticStr;
 pub enum MglType {
     #[strum(serialize = "()")]
     Unit,
-    #[strum(serialize = "double")]
-    Double,
     #[strum(serialize = "bool")]
     Bool,
+    #[strum(serialize = "int")]
+    Int,
+    #[strum(serialize = "double")]
+    Double,
     #[strum(serialize = "array")]
     Array { type_: Box<MglType>, size: usize },
 }

@@ -457,6 +457,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         match item {
             ast::Literal::Unit(_) => Ok(ValueExpr::unit()),
+            ast::Literal::Int(v) => Ok(self.mgl_builder.int(*v)),
             ast::Literal::Float(v) => Ok(self.mgl_builder.double(*v)),
             ast::Literal::Bool(v) => Ok(self.mgl_builder.bool(*v)),
         }
@@ -681,10 +682,10 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         // インデックス変数を作成
         let index_var = self
             .mgl_builder
-            .create_variable(parent, &MglType::Double, var_name);
+            .create_variable(parent, &MglType::Int, var_name);
         self.mgl_builder.build_store(
             &index_var,
-            Sp::new(&self.mgl_builder.double(0.0).into(), item.var_name.span),
+            Sp::new(&self.mgl_builder.int(0).into(), item.var_name.span),
         )?;
 
         // 同名の変数があればシャドーイングした後、変数を登録
@@ -704,10 +705,10 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let until_val = self.mgl_builder.build_expr(until_val);
 
         // until_valの型チェック
-        if until_val.type_ != MglType::Double {
+        if until_val.type_ != MglType::Int {
             return Err(Sp::new(
                 CodeGenError::MismatchedTypes {
-                    expected: MglType::Double,
+                    expected: MglType::Int,
                     found: until_val.type_,
                 },
                 item.until.span,
@@ -740,7 +741,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         let next_index_val = self.mgl_builder.build_bin_op(
             BinOp::Add,
             &index_val,
-            &self.mgl_builder.double(1.0),
+            &self.mgl_builder.int(1),
             span,
         )?;
 

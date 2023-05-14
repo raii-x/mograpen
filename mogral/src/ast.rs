@@ -141,8 +141,9 @@ ast_node_enum! {
     Literal;
     // unit型は0要素のタプルとすべきだが、暫定的に()をリテラルとしている
     Unit(()),
-    Float(f64),
-    Bool(bool)
+    Bool(bool),
+    Int(i32),
+    Float(f64)
 }
 
 ast_node_struct! {
@@ -195,7 +196,7 @@ impl ASTNode for () {
     }
 }
 
-impl ASTNode for f64 {
+impl ASTNode for bool {
     fn node_to_string(&self) -> String {
         self.to_string()
     }
@@ -204,7 +205,16 @@ impl ASTNode for f64 {
     }
 }
 
-impl ASTNode for bool {
+impl ASTNode for i32 {
+    fn node_to_string(&self) -> String {
+        self.to_string()
+    }
+    fn children(&self) -> Vec<(String, &dyn ASTNode)> {
+        vec![]
+    }
+}
+
+impl ASTNode for f64 {
     fn node_to_string(&self) -> String {
         self.to_string()
     }

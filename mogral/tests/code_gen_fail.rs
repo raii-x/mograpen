@@ -58,6 +58,25 @@ fn main() {
 }
 
 #[test]
+fn let_mismatched_types_int_double() {
+    let source = r#"
+fn main() {
+    x: int = 0.;
+}"#;
+    assert_eq!(
+        code_gen_fail(source),
+        (
+            (3, 14),
+            (3, 16),
+            MismatchedTypes {
+                expected: MglType::Int,
+                found: MglType::Double
+            }
+        )
+    );
+}
+
+#[test]
 fn set_mismatched_types() {
     let source = r#"
 fn main(x: bool) {
@@ -70,7 +89,7 @@ fn main(x: bool) {
             (3, 14),
             MismatchedTypes {
                 expected: MglType::Bool,
-                found: MglType::Double
+                found: MglType::Int
             }
         )
     );
@@ -89,7 +108,7 @@ fn main() {
             (3, 9),
             MismatchedTypes {
                 expected: MglType::Bool,
-                found: MglType::Double
+                found: MglType::Int
             }
         )
     );
@@ -108,7 +127,7 @@ fn main() {
             (3, 18),
             MismatchedTypes {
                 expected: MglType::Unit,
-                found: MglType::Double
+                found: MglType::Int
             }
         )
     );
@@ -126,7 +145,7 @@ fn main() {
             (3, 28),
             (3, 30),
             MismatchedTypes {
-                expected: MglType::Double,
+                expected: MglType::Int,
                 found: MglType::Unit
             }
         )
@@ -145,7 +164,7 @@ fn main() {
             (3, 12),
             (3, 16),
             MismatchedTypes {
-                expected: MglType::Double,
+                expected: MglType::Int,
                 found: MglType::Bool
             }
         )
@@ -184,7 +203,7 @@ fn main() { 0 }
             (2, 16),
             MismatchedTypes {
                 expected: MglType::Unit,
-                found: MglType::Double
+                found: MglType::Int
             }
         )
     );
@@ -202,7 +221,7 @@ fn main() { return 0; }
             (2, 21),
             MismatchedTypes {
                 expected: MglType::Unit,
-                found: MglType::Double
+                found: MglType::Int
             }
         )
     );
@@ -226,7 +245,7 @@ fn main() {{
                 (3, 10),
                 MismatchedTypes {
                     expected: MglType::Bool,
-                    found: MglType::Double
+                    found: MglType::Int
                 }
             )
         );
@@ -251,7 +270,7 @@ fn main() {{
                 (3, 16 + op_str.len()),
                 MismatchedTypes {
                     expected: MglType::Bool,
-                    found: MglType::Double
+                    found: MglType::Int
                 }
             )
         );
@@ -266,7 +285,7 @@ fn main() {
 }"#;
     assert_eq!(
         code_gen_fail(source),
-        ((3, 5), (3, 9), NonIndexableType(MglType::Double))
+        ((3, 5), (3, 9), NonIndexableType(MglType::Int))
     );
 }
 
@@ -328,7 +347,7 @@ fn invalid_binary_operand_types_double_unit() {
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} ();
+    x = 0. {} ();
 }}"#,
             op_str
         );
@@ -336,7 +355,7 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 14 + op_str.len()),
+                (3, 15 + op_str.len()),
                 InvalidBinaryOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -366,7 +385,7 @@ fn invalid_binary_operand_types_double_bool() {
         let source = format!(
             r#"
 fn main() {{
-    x = 0 {} true;
+    x = 0. {} true;
 }}"#,
             op_str
         );
@@ -374,7 +393,7 @@ fn main() {{
             code_gen_fail(&source),
             (
                 (3, 9),
-                (3, 16 + op_str.len()),
+                (3, 17 + op_str.len()),
                 InvalidBinaryOperandTypes {
                     op,
                     lhs: MglType::Double,
@@ -549,7 +568,7 @@ fn main() {{
 
 #[test]
 fn invalid_unary_operand_type_neg() {
-    for (operand, type_) in [("true", MglType::Bool), ("()", MglType::Unit)] {
+    for (operand, type_) in [("()", MglType::Unit), ("true", MglType::Bool)] {
         let source = format!(
             r#"
 fn main() {{
@@ -573,7 +592,11 @@ fn main() {{
 
 #[test]
 fn invalid_unary_operand_type_not() {
-    for (operand, type_) in [("0", MglType::Double), ("()", MglType::Unit)] {
+    for (operand, type_) in [
+        ("()", MglType::Unit),
+        ("0", MglType::Int),
+        ("0.", MglType::Double),
+    ] {
         let source = format!(
             r#"
 fn main() {{
@@ -634,7 +657,7 @@ fn main() {
 #[test]
 fn for_variable_scope() {
     let source = r#"
-fn main(): double {
+fn main(): int {
 	for i, 5 {}
     i
 }"#;
@@ -660,7 +683,7 @@ fn main() {
 #[test]
 fn invalid_number_of_arguments() {
     let source = r#"
-fn f(x: double): double { x }
+fn f(x: int): int { x }
 fn main() {
     f(0, 1);
 }"#;
