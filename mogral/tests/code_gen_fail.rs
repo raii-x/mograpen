@@ -625,7 +625,7 @@ fn main(): double {
     x
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
     );
 }
@@ -637,7 +637,7 @@ fn main() {
     set x = 0;
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((3, 9), (3, 10), UnresolvedName("x".to_owned()))
     );
 }
@@ -649,7 +649,7 @@ fn main() {
     x();
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((3, 5), (3, 6), UnresolvedName("x".to_owned()))
     );
 }
@@ -662,7 +662,7 @@ fn main(): int {
     i
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((4, 5), (4, 6), UnresolvedName("i".to_owned()))
     );
 }
@@ -675,7 +675,7 @@ fn main() {
     x = 1;
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((4, 5), (4, 6), VariableAlreadyExists("x".to_owned()))
     );
 }
@@ -688,7 +688,7 @@ fn main() {
     f(0, 1);
 }"#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         (
             (4, 5),
             (4, 12),
@@ -707,7 +707,7 @@ fn main() {}
 fn main() {}
 "#;
     assert_eq!(
-        code_gen_fail(&source),
+        code_gen_fail(source),
         ((3, 1), (3, 10), MultipleDefinitions("main".to_owned()))
     );
 }

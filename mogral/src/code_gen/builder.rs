@@ -71,10 +71,9 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             MglType::Bool => Some(self.context.bool_type().into()),
             MglType::Int => Some(self.context.i32_type().into()),
             MglType::Double => Some(self.context.f64_type().into()),
-            MglType::Array { type_, size } => match self.ink_type(type_) {
-                Some(ty) => Some(ty.array_type(*size as u32).into()),
-                None => None,
-            },
+            MglType::Array { type_, size } => self
+                .ink_type(type_)
+                .map(|ty| ty.array_type(*size as u32).into()),
         }
     }
 
@@ -87,10 +86,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
     ) -> PlaceExpr<'ctx> {
         PlaceExpr {
             type_: type_.clone(),
-            alloca: match self.ink_type(&type_) {
-                Some(ty) => Some(self.create_entry_block_alloca(func, ty, name)),
-                None => None,
-            },
+            alloca: self.ink_type(type_).map(|ty| self.create_entry_block_alloca(func, ty, name)),
         }
     }
 
@@ -129,24 +125,18 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
             ));
         }
 
-        Ok(match variable.alloca {
-            Some(alloca) => Some(self.builder.build_store(alloca, expr.item.value.unwrap())),
-            None => None,
-        })
+        Ok(variable.alloca.map(|alloca| self.builder.build_store(alloca, expr.item.value.unwrap())))
     }
 
     /// PlaceExprからのロード命令を作成する
     pub fn build_load(&self, variable: &PlaceExpr<'ctx>) -> ValueExpr<'ctx> {
         ValueExpr {
             type_: variable.type_.clone(),
-            value: match variable.alloca {
-                Some(alloca) => Some(self.builder.build_load(
+            value: variable.alloca.map(|alloca| self.builder.build_load(
                     self.ink_type(&variable.type_).unwrap(),
                     alloca,
                     "loadtmp",
                 )),
-                None => None,
-            },
         }
     }
 
@@ -292,10 +282,7 @@ impl<'ctx, 'a> MglBuilder<'ctx, 'a> {
         // 関数の戻り値を返す
         Ok(ValueExpr {
             type_: function.ret_type.clone(),
-            value: match self.ink_type(&function.ret_type) {
-                Some(_) => Some(call_site.try_as_basic_value().left().unwrap()),
-                None => None,
-            },
+            value: self.ink_type(&function.ret_type).map(|_| call_site.try_as_basic_value().left().unwrap()),
         })
     }
 

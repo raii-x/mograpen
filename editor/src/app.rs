@@ -27,7 +27,7 @@ enum Tab {
     #[strum(serialize = "Error")]
     Error,
     #[strum(serialize = "AST")]
-    AST,
+    Ast,
     #[strum(serialize = "LLVM IR")]
     LlvmIr,
     #[strum(serialize = "Exec Result")]
@@ -82,7 +82,7 @@ impl Editor {
 
     fn default_layout() -> egui_dock::Tree<Tab> {
         let mut tree = egui_dock::Tree::new(vec![Tab::Editor]);
-        let node_editor_ast = tree.split_right(egui_dock::NodeIndex::root(), 0.4, vec![Tab::AST]);
+        let node_editor_ast = tree.split_right(egui_dock::NodeIndex::root(), 0.4, vec![Tab::Ast]);
         let node_ast_llvm_ir = tree.split_right(node_editor_ast[1], 0.4, vec![Tab::LlvmIr]);
         tree.split_below(node_editor_ast[0], 0.75, vec![Tab::Error]);
         tree.split_below(node_ast_llvm_ir[1], 0.75, vec![Tab::ExecResult]);
@@ -262,9 +262,9 @@ impl egui_dock::TabViewer for AppContext {
                         .show(ui);
 
                     // TODO: 長い行が折り返された場合に折り返された後の位置が表示されるのを修正する
-                    self.cursor_pos = editor.cursor_range.and_then(|pos| {
+                    self.cursor_pos = editor.cursor_range.map(|pos| {
                         let c = pos.primary.rcursor;
-                        Some((c.row, c.column))
+                        (c.row, c.column)
                     });
 
                     if editor.response.changed() && self.exec_on_edit {
@@ -275,7 +275,7 @@ impl egui_dock::TabViewer for AppContext {
             Tab::Error => {
                 ui.label(&self.error);
             }
-            Tab::AST => {
+            Tab::Ast => {
                 if let Some(ast) = &self.ast {
                     show_ast(ui, ast);
                 }
