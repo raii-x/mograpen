@@ -1,6 +1,11 @@
 pub mod error;
 
-lalrpop_mod!(grammar, "/parser/grammar.rs");
+lalrpop_mod!(
+    #[allow(unused_attributes)] // allow(rust_2018_idioms)で警告が出るため
+    #[allow(clippy::all, rust_2018_idioms)]
+    grammar,
+    "/parser/grammar.rs"
+);
 
 use lalrpop_util::{lexer::Token, ParseError};
 

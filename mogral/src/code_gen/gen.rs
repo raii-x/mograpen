@@ -93,7 +93,8 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         }
 
         // 引数型を作成
-        let mut param_types: Vec<BasicMetadataTypeEnum> = Vec::with_capacity(item.params.len());
+        let mut param_types: Vec<BasicMetadataTypeEnum<'ctx>> =
+            Vec::with_capacity(item.params.len());
         let mut param_names: Vec<&str> = Vec::with_capacity(item.params.len());
 
         for param in &item.params {
@@ -111,7 +112,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
         // 関数型を作成
         let fn_type = match &item.ret {
-            Some(Sp { item: ty, span: _ }) => match self.mgl_builder.ink_type(&ty) {
+            Some(Sp { item: ty, span: _ }) => match self.mgl_builder.ink_type(ty) {
                 Some(ty) => ty.fn_type(&param_types, false),
                 None => self.context.void_type().fn_type(&param_types, false),
             },
@@ -119,7 +120,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         };
 
         // 関数を作成
-        let fn_val = self.module.add_function(&fn_name, fn_type, None);
+        let fn_val = self.module.add_function(fn_name, fn_type, None);
 
         // 引数の名前を設定
         for (i, arg) in fn_val.get_param_iter().enumerate() {
@@ -196,7 +197,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
 
             // 引数値を変数に格納
             self.mgl_builder
-                .build_store(&var, Sp::new(&args[i].clone().into(), arg_name.span))?;
+                .build_store(&var, Sp::new(&args[i].clone(), arg_name.span))?;
         }
 
         // 関数本体のコード生成
@@ -325,6 +326,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         Ok(ValueExpr::unit().into())
     }
 
+    #[allow(clippy::borrowed_box)]
     fn gen_expr(&mut self, ast: Sp<&Box<ast::Expr>>) -> Result<MaybeNever<'ctx>, Sp<CodeGenError>> {
         let Sp { item, span } = ast;
 
@@ -362,6 +364,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
         Ok(val.into())
     }
 
+    #[allow(clippy::borrowed_box)]
     fn gen_return(
         &mut self,
         ast: Sp<&Box<ast::Expr>>,
@@ -685,7 +688,7 @@ impl<'ctx, 'a> CodeGen<'ctx, 'a> {
             .create_variable(parent, &MglType::Int, var_name);
         self.mgl_builder.build_store(
             &index_var,
-            Sp::new(&self.mgl_builder.int(0).into(), item.var_name.span),
+            Sp::new(&self.mgl_builder.int(0), item.var_name.span),
         )?;
 
         // 同名の変数があればシャドーイングした後、変数を登録
@@ -776,8 +779,8 @@ pub fn code_gen<'ctx>(
         context,
         builder: &builder,
     };
-    let mut code_gen = CodeGen::new(&context, &module, &builder, optimize, &mgl_builder);
-    code_gen.gen_module(&ast)?;
+    let mut code_gen = CodeGen::new(context, &module, &builder, optimize, &mgl_builder);
+    code_gen.gen_module(ast)?;
 
     Ok(module)
 }

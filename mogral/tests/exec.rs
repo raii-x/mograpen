@@ -75,7 +75,7 @@ fn main(): bool {
     }
     v
 }"#;
-    assert_eq!(source_exec::<bool>(source), false);
+    assert!(!source_exec::<bool>(source));
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn rem_int() {
     let source = r#"
 fn main(): int { 11 % 4 }
 "#;
-    assert_eq!(source_exec::<i32>(&source), 3);
+    assert_eq!(source_exec::<i32>(source), 3);
 }
 
 #[test]
@@ -318,7 +318,7 @@ fn rem_double() {
     let source = r#"
 fn main(): double { 11. % 4. }
 "#;
-    assert_eq!(source_exec::<f64>(&source), 3.);
+    assert_eq!(source_exec::<f64>(source), 3.);
 }
 
 #[test]
@@ -327,7 +327,7 @@ fn add_lhs_return() {
 fn main(x: int): int {
     (return 1) + x
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 1);
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn add_rhs_return() {
 fn main(x: int): int {
     x + (return 2)
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 2);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 2);
 }
 
 #[test]
@@ -345,7 +345,7 @@ fn add_both_hs_return() {
 fn main(): int {
     (return 1) + (return 2)
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 1);
+    assert_eq!(source_exec::<i32>(source), 1);
 }
 
 #[test]
@@ -356,7 +356,7 @@ fn main(): int {
 	if () != () { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -369,7 +369,7 @@ fn main(): int {
 	if true != false {} else { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -382,7 +382,7 @@ fn main(): int {
 	if 3 != 4 {} else { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -395,7 +395,7 @@ fn main(): int {
 	if 3. != 4. {} else { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -412,7 +412,7 @@ fn main(x: int): int {
 	if 3 >= 4 { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -429,7 +429,7 @@ fn main(): int {
 	if 3. >= 4. { return 1; }
 	0
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -438,10 +438,10 @@ fn logical_and() {
 fn main(x: int): int {
     if x >= 2 && (x != 0 && x != 2) { 1 } else { 0 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 2), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 3), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 2), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 3), 1);
 }
 
 #[test]
@@ -450,10 +450,10 @@ fn logical_or() {
 fn main(x: int): int {
     if x >= 2 || (x == 1 || x == 3) { 1 } else { 0 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 1);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 2), 1);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 3), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 2), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 3), 1);
 }
 
 #[test]
@@ -462,10 +462,10 @@ fn logical_precedence() {
 fn main(x: int): int {
     if x >= 2 || x == 1 && x < 3 { 1 } else { 0 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 1);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 2), 1);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 3), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 2), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 3), 1);
 }
 
 #[test]
@@ -475,8 +475,8 @@ fn main(x: int): int {
     if (return 2) && x == 1 { return 3; }
     return 4;
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 2);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 2);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 2);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 2);
 }
 
 #[test]
@@ -486,8 +486,8 @@ fn main(x: int): int {
     if x == 1 && (return 2) { return 3; }
     return 4;
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 4);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 2);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 4);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 2);
 }
 
 #[test]
@@ -497,7 +497,7 @@ fn main(): int {
     if (return 1) && (return 2) { return 3; }
     return 4;
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 1);
+    assert_eq!(source_exec::<i32>(source), 1);
 }
 
 #[test]
@@ -506,8 +506,8 @@ fn neg_int() {
 fn main(x: int): int {
     -x
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 5), -5);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 5), -5);
 }
 
 #[test]
@@ -516,8 +516,8 @@ fn neg_double() {
 fn main(x: double): double {
     -x
 }"#;
-    assert_eq!(source_exec_arg::<_, f64>(&source, 0.), 0.);
-    assert_eq!(source_exec_arg::<_, f64>(&source, 5.), -5.);
+    assert_eq!(source_exec_arg::<_, f64>(source, 0.), 0.);
+    assert_eq!(source_exec_arg::<_, f64>(source, 5.), -5.);
 }
 
 #[test]
@@ -526,8 +526,8 @@ fn multiple_neg_int() {
 fn main(x: int): int {
     ----x
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 5), 5);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 5), 5);
 }
 
 #[test]
@@ -536,8 +536,8 @@ fn multiple_neg_double() {
 fn main(x: double): double {
     ----x
 }"#;
-    assert_eq!(source_exec_arg::<_, f64>(&source, 0.), 0.);
-    assert_eq!(source_exec_arg::<_, f64>(&source, 5.), 5.);
+    assert_eq!(source_exec_arg::<_, f64>(source, 0.), 0.);
+    assert_eq!(source_exec_arg::<_, f64>(source, 5.), 5.);
 }
 
 #[test]
@@ -546,8 +546,8 @@ fn not() {
 fn main(x: int): int {
     if !(x == 3) { 1 } else { 0 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 2), 1);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 3), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 2), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 3), 0);
 }
 
 #[test]
@@ -556,8 +556,8 @@ fn multiple_not() {
 fn main(x: int): int {
     if !!!!(x == 3) { 1 } else { 0 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 2), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 3), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 2), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 3), 1);
 }
 
 #[test]
@@ -569,7 +569,7 @@ fn sub(x: ()) {
 fn main(): int {
     if sub(()) == () { 0 } else { 1 }
 }"#;
-    assert_eq!(source_exec::<i32>(&source), 0);
+    assert_eq!(source_exec::<i32>(source), 0);
 }
 
 #[test]
@@ -581,6 +581,6 @@ fn sub(x: bool): bool {
 fn main(x: int): int {
     if sub(x == 0) { 0 } else { 1 }
 }"#;
-    assert_eq!(source_exec_arg::<_, i32>(&source, 0), 0);
-    assert_eq!(source_exec_arg::<_, i32>(&source, 1), 1);
+    assert_eq!(source_exec_arg::<_, i32>(source, 0), 0);
+    assert_eq!(source_exec_arg::<_, i32>(source, 1), 1);
 }
