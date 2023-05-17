@@ -293,7 +293,7 @@ fn main() {
 fn non_indexable_type_multidimensional() {
     let source = r#"
 fn main() {
-    a: [double; 1];
+    a: [1]double;
     a[0][0];
 }"#;
     assert_eq!(
@@ -306,7 +306,7 @@ fn main() {
 fn invalid_index_type() {
     let source = r#"
 fn main() {
-    a: [double; 1];
+    a: [1]double;
     a[true];
 }"#;
     assert_eq!(
@@ -319,7 +319,7 @@ fn main() {
 fn invalid_index_type_multidimensional() {
     let source = r#"
 fn main() {
-    a: [[double; 1]; 1];
+    a: [1][1]double;
     a[0][true];
 }"#;
     assert_eq!(
@@ -447,8 +447,8 @@ fn invalid_binary_operand_types_arith_array() {
         let source = format!(
             r#"
 fn main() {{
-    a: [double; 1];
-    b: [double; 1];
+    a: [1]double;
+    b: [1]double;
     x = a {} b;
 }}"#,
             op_str
@@ -493,8 +493,8 @@ fn invalid_binary_operand_types_array_not_match_element_types() {
         let source = format!(
             r#"
 fn main() {{
-    a: [double; 1];
-    b: [bool; 1];
+    a: [1]double;
+    b: [1]bool;
     x = a {} b;
 }}"#,
             op_str
@@ -539,8 +539,8 @@ fn invalid_binary_operand_types_array_not_match_element_numbers() {
         let source = format!(
             r#"
 fn main() {{
-    a: [double; 1];
-    b: [double; 2];
+    a: [1]double;
+    b: [2]double;
     x = a {} b;
 }}"#,
             op_str

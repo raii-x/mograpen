@@ -188,7 +188,7 @@ Type:                                       MglType = {
     "bool"                                      => MglType::Bool,
     "int"                                       => MglType::Int,
     "double"                                    => MglType::Double,
-    "[" <t:Type> ";" <s:Int> "]"                => MglType::Array { type_: Box::new(t), size: s as usize },
+    "[" <s:Int> "]" <t:Type>                    => MglType::Array { type_: Box::new(t), size: s as usize },
 }
 
 Comma<T>:                                   Vec<T> = {
