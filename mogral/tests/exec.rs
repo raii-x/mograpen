@@ -62,7 +62,7 @@ fn main() {
     v = ();
     set v = ();
 }"#;
-    assert_eq!(source_exec::<()>(source), ());
+    source_exec::<()>(source);
 }
 
 #[test]
