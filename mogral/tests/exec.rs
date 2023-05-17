@@ -125,7 +125,7 @@ fn main(): int {
 fn array() {
     let source = r#"
 fn main(x: int): int {
-    a: [int; 3];
+    a: [3]int;
     set a[0] = 1;
     set a[1] = 2;
     set a[2] = 3;
@@ -140,7 +140,7 @@ fn main(x: int): int {
 fn array_copy() {
     let source = r#"
 fn main(x: int): int {
-    a: [int; 2];
+    a: [2]int;
     set a[0] = 1;
     set a[1] = 2;
     b = a;
@@ -153,8 +153,8 @@ fn main(x: int): int {
 #[test]
 fn array_return() {
     let source = r#"
-fn sub(): [int; 2] {
-    a: [int; 2];
+fn sub(): [2]int {
+    a: [2]int;
     set a[0] = 1;
     set a[1] = 2;
     a
@@ -171,7 +171,7 @@ fn main(x: int): int {
 fn array_multidimensional() {
     let source = r#"
 fn main(x: int): int {
-    a: [[int; 3]; 2];
+    a: [2][3]int;
     set a[0][1] = 1;
     set a[1][2] = 2;
     a[x][x + 1]
@@ -184,7 +184,7 @@ fn main(x: int): int {
 fn array_multidimensional_subarray() {
     let source = r#"
 fn main(x: int): int {
-    a: [[int; 2]; 3];
+    a: [3][2]int;
     set a[2][0] = 1;
     set a[2][1] = 2;
     b = a[2];
